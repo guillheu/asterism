@@ -28,20 +28,6 @@ fn display_recurse(
   case worklist {
     [work, ..rest] -> {
       let #(process, depth, parent_index) = work
-      let amount_children = case process.workers {
-        [] -> 0
-        [_] -> 1
-        [_, _] -> 2
-        [_, _, _] -> 3
-        [_, _, _, _] -> 4
-        [_, _, _, _, _] -> 5
-        [_, _, _, _, _, _] -> 6
-        [_, _, _, _, _, _, _] -> 7
-        [_, _, _, _, _, _, _, _] -> 8
-        [_, _, _, _, _, _, _, _, _] -> 9
-
-        _ -> list.length(process.workers)
-      }
       let process_display =
         display_fn(process.pid, depth, current_index, parent_index)
       let new_acc = [process_display, ..acc]

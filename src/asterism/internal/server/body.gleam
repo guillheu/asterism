@@ -1,0 +1,39 @@
+import gleam/bytes_tree
+import gleam/http/response.{type Response}
+import lustre/attribute
+import lustre/element
+import lustre/element/html.{html}
+import lustre/server_component
+import mist.{type ResponseData}
+
+pub fn serve_html() -> Response(ResponseData) {
+  let html =
+    html([attribute.lang("en")], [
+      html.head([], [
+        html.meta([attribute.charset("utf-8")]),
+        html.meta([
+          attribute.name("viewport"),
+          attribute.content("width=device-width, initial-scale=1"),
+        ]),
+        html.title([], "My Cool Lustre App"),
+        html.link([
+          attribute.rel("stylesheet"),
+          attribute.type_("text/css"),
+          attribute.href("index.css"),
+        ]),
+        html.script(
+          [attribute.type_("module"), attribute.src("/lustre/runtime.mjs")],
+          "",
+        ),
+      ]),
+      html.body([], [
+        server_component.element([server_component.route("/ws")], []),
+      ]),
+    ])
+    |> element.to_document_string_tree
+    |> bytes_tree.from_string_tree
+
+  response.new(200)
+  |> response.set_body(mist.Bytes(html))
+  |> response.set_header("content-type", "text/html")
+}
