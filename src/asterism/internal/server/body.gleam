@@ -15,7 +15,7 @@ pub fn serve_html() -> Response(ResponseData) {
           attribute.name("viewport"),
           attribute.content("width=device-width, initial-scale=1"),
         ]),
-        html.title([], "My Cool Lustre App"),
+        html.title([], "Asterism"),
         html.link([
           attribute.rel("stylesheet"),
           attribute.type_("text/css"),

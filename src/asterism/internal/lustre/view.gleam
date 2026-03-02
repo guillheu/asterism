@@ -1,7 +1,10 @@
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/lustre/update.{type Msg}
-import asterism/internal/process_tree.{type Id, type Process}
+import asterism/internal/process_tree
+import gleam/erlang/process.{type Pid}
 import gleam/int
+import gleam/option.{type Option, None, Some}
+import gleam/string
 import lustre/attribute.{attribute}
 import lustre/element.{type Element}
 import lustre/element/html
@@ -22,11 +25,19 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn display_node(
-  id: Id,
+  id: Pid,
+  optional_name: Option(String),
   depth: Int,
   index: Int,
   parent_index: Int,
 ) -> Element(Msg) {
+  let process_name = case optional_name {
+    Some(name) -> name
+    None ->
+      string.inspect(id)
+      |> string.drop_start(6)
+      |> string.drop_end(1)
+  }
   let depth_string = int.to_string(depth + 1)
   let index_string = int.to_string(index + 1)
   html.div(
@@ -34,12 +45,13 @@ fn display_node(
       attribute.style("grid-column", depth_string),
       attribute.style("grid-row", index_string),
       attribute.class(
-        "border rounded w-50 h-[100px] text-5xl flex items-center justify-center relative",
+        "border rounded w-50 h-[100px] text-wrap flex items-center justify-center relative",
       ),
     ],
     [
-      html.div([], [
-        html.text(int.to_string(id)),
+      html.div([attribute.class("object-cover")], [
+        process_name
+        |> html.text,
       ]),
       draw_arrow(index - parent_index),
     ],
@@ -54,9 +66,6 @@ fn draw_arrow(height_index: Int) -> Element(Msg) {
   let arrow_height_1 = int.to_string(96 + height_minus_one)
   let arrow_height_2 = int.to_string(104 + height_minus_one)
   let arrow_height_3 = int.to_string(100 + height_minus_one)
-  //   let arrow_height_1 = "96"
-  //   let arrow_height_2 = "104"
-  //   let arrow_height_3 = "100"
   let vertical_offset =
     10 + height - arrow_height_per_row + right_turn_vertical_offset
   let vertical_offset_string = int.to_string(vertical_offset)
