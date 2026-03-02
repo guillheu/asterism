@@ -1,5 +1,5 @@
-import asterism/internal/process_tree.{type Process}
+import asterism/internal/process_tree.{type ProcessTree}
 
 pub type Model {
-  Model(root: Process)
+  Model(root: ProcessTree)
 }

@@ -1,6 +1,6 @@
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/lustre/update.{type Msg}
-import asterism/internal/process_tree
+import asterism/internal/process_tree.{type Process}
 import gleam/erlang/process.{type Pid}
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -25,16 +25,15 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn display_node(
-  id: Pid,
-  optional_name: Option(String),
+  process: Process,
   depth: Int,
   index: Int,
   parent_index: Int,
 ) -> Element(Msg) {
-  let process_name = case optional_name {
+  let process_name = case process.name {
     Some(name) -> name
     None ->
-      string.inspect(id)
+      string.inspect(process.pid)
       |> string.drop_start(6)
       |> string.drop_end(1)
   }

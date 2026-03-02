@@ -16,11 +16,7 @@ get_linked_pids(Pid) ->
     end.
 
 get_process_name(Pid) ->
-    Result = process_info(Pid, registered_name),
-    io:format("process_info result for ~p: ~p~n", [Pid, Result]),
-    NewResult = case Result of
+    case process_info(Pid, registered_name) of
         []                      -> none;
         {registered_name, Name} -> {some, Name}
-    end,
-    % io:format("~p~n", NewResult),
-    NewResult.
+    end.
