@@ -1,16 +1,17 @@
 -module(asterism_ffi).
--export([get_root_process/0, get_children/1, get_linked_pids/1, get_process_name/1]).
+-export([get_init_process/0, get_children/1, get_linked_processes/1, get_process_name/1]).
 
-get_root_process() ->
+get_init_process() ->
     whereis(init).
 
 get_children(SupRef) ->
     supervisor:which_children(SupRef).
 
-get_linked_pids(Pid) ->
+get_linked_processes(Pid) ->
     case process_info(Pid, links) of
-        {links, LinkedPids} ->
-            LinkedPids;
+        {links, Links} ->
+            Filtered = lists:filter(fun is_pid/1, Links),
+            lists:sort(Filtered);
         undefined ->
             error(badarg)
     end.

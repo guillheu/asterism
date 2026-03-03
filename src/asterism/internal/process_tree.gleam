@@ -1,94 +1,71 @@
+import gleam/dict.{type Dict}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
 import gleam/list
 import gleam/option.{type Option, None, Some}
-
-pub type ProcessTree {
-  ProcessNode(process: Process, workers: List(ProcessTree))
-}
+import gleam/string
 
 pub type Process {
-  Process(pid: Pid, name: Option(String))
+  PlainProcess(pid: Pid, name: Option(String))
 }
 
-pub type DisplayFunction(display_type) =
-  fn(Process, Int, Int, Int) -> display_type
-
-// Process, depth, index, parent index
-
-pub fn display(
-  start: ProcessTree,
-  display_function: DisplayFunction(display_type),
-) -> List(display_type) {
-  display_recurse([#(start, 0, 0)], display_function, 0, []) |> list.reverse
+pub type Link {
+  PlainLink(pid_1: Pid, pid_2: Pid)
 }
 
-fn display_recurse(
-  worklist: List(#(ProcessTree, Int, Int)),
-  display_fn: DisplayFunction(display_type),
-  current_index: Int,
-  acc: List(display_type),
-) -> List(display_type) {
-  case worklist {
-    [work, ..rest] -> {
-      let #(process_node, depth, parent_index) = work
-      let process_display =
-        display_fn(
-          Process(process_node.process.pid, process_node.process.name),
-          depth,
-          current_index,
-          parent_index,
-        )
-      let new_acc = [process_display, ..acc]
-      case process_node.workers {
-        [] -> display_recurse(rest, display_fn, current_index + 1, new_acc)
-        process_workers ->
-          list.map(process_workers, fn(worker) {
-            #(worker, depth + 1, current_index)
-          })
-          |> list.append(rest)
-          |> display_recurse(display_fn, current_index + 1, new_acc)
-      }
-    }
-    [] -> acc
+pub fn process_to_string(proc: Process) -> String {
+  case proc.name {
+    Some(name) -> name
+    None ->
+      string.inspect(proc.pid) |> string.drop_start(6) |> string.drop_end(1)
   }
 }
 
-pub fn get_process_tree() -> ProcessTree {
-  let root_process =
-    get_root_process()
-    |> pid_to_process
-  let linked =
-    get_linked_processes(root_process)
-    |> list.map(fn(process_node) {
-      let grandkids_ish =
-        get_linked_processes(process_node.process)
-        |> list.filter(fn(process_node) {
-          process_node.process.name != Some("init")
+pub fn get_process_tree() -> #(List(Process), List(Link)) {
+  let root_pid = get_init_process()
+  let processes: List(Process) =
+    dict.from_list([])
+    |> recurse_walk_process_graph([root_pid])
+    |> dict.values
+  #(processes, [])
+}
+
+fn recurse_walk_process_graph(
+  already_seen_processes: Dict(Pid, Process),
+  next: List(Pid),
+) -> Dict(Pid, Process) {
+  case next {
+    [first, ..rest] -> {
+      let linked_to =
+        get_linked_processes(first)
+        |> list.filter(fn(linked_process) {
+          !dict.has_key(already_seen_processes, linked_process)
         })
-      ProcessNode(..process_node, workers: grandkids_ish)
-    })
-  ProcessNode(root_process, linked)
+      let rest = list.append(rest, linked_to)
+      let already_seen_processes =
+        list.map(linked_to, fn(proc) { #(proc, process_from_pid(proc)) })
+        |> dict.from_list
+        |> dict.combine(already_seen_processes, fn(_, _) {
+          panic as "Process should have been filtered (this is a bad error message)"
+        })
+      recurse_walk_process_graph(already_seen_processes, rest)
+    }
+    [] -> already_seen_processes
+  }
 }
 
-fn pid_to_process(pid: Pid) -> Process {
-  let name = get_process_name(pid) |> option.map(atom.to_string)
-  Process(pid, name)
+fn process_from_pid(pid: Pid) -> Process {
+  PlainProcess(
+    pid: pid,
+    name: get_process_name(pid) |> option.map(atom.to_string),
+  )
 }
 
-fn get_linked_processes(process: Process) -> List(ProcessTree) {
-  get_linked_pids(process.pid)
-  |> list.map(fn(pid) { pid_to_process(pid) |> ProcessNode([]) })
-}
+@external(erlang, "asterism_ffi", "get_init_process")
+fn get_init_process() -> Pid
 
-@external(erlang, "asterism_ffi", "get_root_process")
-fn get_root_process() -> Pid
-
-@external(erlang, "asterism_ffi", "get_children")
-fn get_children_processes(parent: Pid) -> List(Pid)
-
-@external(erlang, "asterism_ffi", "get_linked_pids")
-fn get_linked_pids(from: Pid) -> List(Pid)
+@external(erlang, "asterism_ffi", "get_linked_processes")
+fn get_linked_processes(from: Pid) -> List(Pid)
 
 @external(erlang, "asterism_ffi", "get_process_name")
-fn get_process_name(from: Pid) -> Option(Atom)
+fn get_process_name(proc: Pid) -> Option(Atom)
