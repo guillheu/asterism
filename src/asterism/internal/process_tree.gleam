@@ -23,17 +23,19 @@ pub fn process_to_string(proc: Process) -> String {
 
 pub fn get_process_tree() -> #(List(Process), List(Link)) {
   let root_pid = get_init_process()
-  let processes: List(Process) =
+  let #(processes, links) =
     dict.from_list([])
-    |> recurse_walk_process_graph([root_pid])
-    |> dict.values
-  #(processes, [])
+    |> recurse_walk_process_graph([], [root_pid])
+
+  let processes = dict.values(processes)
+  #(processes, links)
 }
 
 fn recurse_walk_process_graph(
   already_seen_processes: Dict(Pid, Process),
+  known_links: List(Link),
   next: List(Pid),
-) -> Dict(Pid, Process) {
+) -> #(Dict(Pid, Process), List(Link)) {
   case next {
     [first, ..rest] -> {
       let linked_to =
@@ -41,6 +43,10 @@ fn recurse_walk_process_graph(
         |> list.filter(fn(linked_process) {
           !dict.has_key(already_seen_processes, linked_process)
         })
+
+      let known_links =
+        list.append(known_links, list.map(linked_to, PlainLink(_, first)))
+
       let rest = list.append(rest, linked_to)
       let already_seen_processes =
         list.map(linked_to, fn(proc) { #(proc, process_from_pid(proc)) })
@@ -48,9 +54,9 @@ fn recurse_walk_process_graph(
         |> dict.combine(already_seen_processes, fn(_, _) {
           panic as "Process should have been filtered (this is a bad error message)"
         })
-      recurse_walk_process_graph(already_seen_processes, rest)
+      recurse_walk_process_graph(already_seen_processes, known_links, rest)
     }
-    [] -> already_seen_processes
+    [] -> #(already_seen_processes, known_links)
   }
 }
 

@@ -21,11 +21,7 @@ fn init(
 ) -> #(ComponentState, Option(Selector(server_component.ClientMessage(Msg)))) {
   let my_component = app.app()
 
-  let assert Ok(component) =
-    lustre.start_server_component(
-      my_component,
-      app.Grid(cols: 3, col_w: 100, row_h: 100),
-    )
+  let assert Ok(component) = lustre.start_server_component(my_component, Nil)
 
   let self = process.new_subject()
   let selector =

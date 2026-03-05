@@ -3,13 +3,16 @@ import gleam/http/response
 import gleam/option.{None}
 import mist
 
-pub fn serve_css() -> response.Response(mist.ResponseData) {
-  let file_path = "priv/static/index.css"
+pub fn serve(
+  filename: String,
+  mimetype: String,
+) -> response.Response(mist.ResponseData) {
+  let file_path = "priv/static/" <> filename
 
   case mist.send_file(file_path, offset: 0, limit: None) {
     Ok(file) ->
       response.new(200)
-      |> response.prepend_header("content-type", "text/css")
+      |> response.prepend_header("content-type", mimetype)
       |> response.set_body(file)
 
     Error(_) ->
