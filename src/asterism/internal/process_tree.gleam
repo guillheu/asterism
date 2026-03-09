@@ -18,21 +18,23 @@ pub fn process_to_string(proc: Process) -> String {
   }
 }
 
-pub fn get_process_tree() -> gleaph.Graph(Pid, Nil) {
+pub fn get_process_tree() -> gleaph.Graph(Process, Nil) {
   let graph =
     get_all_processes()
     |> list.fold(gleaph.new_graph(), fn(graph, pid) {
+      let process =
+        PlainProcess(pid, get_process_name(pid) |> option.map(atom.to_string))
       let new_node =
-        pid_to_node_id(pid) |> gleaph.new_node |> gleaph.with_value(pid)
+        pid_to_node_id(pid) |> gleaph.new_node |> gleaph.with_value(process)
       gleaph.add_node(graph, new_node)
     })
 
   gleaph.fold_values(graph, graph, fn(graph, opt) {
-    let assert Some(pid) = opt as "All nodes should have a PID set"
-    get_linked_processes(pid)
+    let assert Some(process) = opt as "All nodes should have a PID set"
+    get_linked_processes(process.pid)
     |> list.fold(graph, fn(graph, neighbor_pid) {
       let edge =
-        pid
+        process.pid
         |> pid_to_node_id
         |> gleaph.new_edge(neighbor_pid |> pid_to_node_id)
         |> gleaph.with_relation(Nil)

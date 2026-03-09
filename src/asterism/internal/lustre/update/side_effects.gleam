@@ -6,7 +6,7 @@ import asterism/internal/process_tree
 import gleam/erlang/process.{type Pid}
 import gleam/int
 import gleam/list
-import gleam/option
+import gleam/option.{Some}
 import gleam/set
 import gleam/string
 import gleaph
@@ -21,7 +21,9 @@ pub fn init() -> Effect(Msg) {
   })
 }
 
-fn process_tree_to_data(graph: gleaph.Graph(Pid, Nil)) -> GraphData {
+fn process_tree_to_data(
+  graph: gleaph.Graph(process_tree.Process, b),
+) -> GraphData {
   let nodes =
     gleaph.get_nodes(graph)
     |> set.to_list
@@ -30,7 +32,8 @@ fn process_tree_to_data(graph: gleaph.Graph(Pid, Nil)) -> GraphData {
     })
     |> list.map(fn(node) {
       let id = gleaph.get_id(node)
-      let label = gleaph.get_value(node) |> string.inspect |> option.Some
+      let label =
+        gleaph.get_value(node) |> option.map(process_tree.process_to_string)
       NodeData(id:, label:)
     })
   let edges =
