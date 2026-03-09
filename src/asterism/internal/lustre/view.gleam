@@ -1,28 +1,34 @@
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/lustre/update.{type Msg}
+import asterism/internal/process_tree/layout
 import clique
 import clique/background
 import clique/edge
 import clique/handle
 import clique/node
 import clique/transform
+import gleam/int
 import gleam/list
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
+const scale_from_layout = 1000.0
+
 pub fn view(model: Model) -> Element(Msg) {
   let transform = transform.init()
   let nodes =
-    list.map(model.nodes, fn(node) {
-      let node_element = get_node_element(node)
-      #(node.id, node_element)
+    model.nodes
+    |> list.map(fn(node) {
+      #(node.id, layout.scale_node(node, scale_from_layout) |> get_node_element)
     })
     |> clique.nodes
+
   let edges =
-    list.map(model.edges, fn(edge) {
+    model.edges
+    |> list.index_map(fn(edge, i) {
       let edge_element = get_edge_element(edge)
-      #(edge.id, edge_element)
+      #(int.to_string(i), edge_element)
     })
     |> clique.edges
   html.div([attribute.class("w-screen h-screen font-mono")], [
@@ -51,13 +57,13 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn get_edge_element(edge: model.Edge) -> Element(Msg) {
-  let handle1 = handle.Handle(edge.node_id_1, "link")
-  let handle2 = handle.Handle(edge.node_id_2, "link")
+fn get_edge_element(edge: layout.EdgeLayout) -> Element(Msg) {
+  let handle1 = handle.Handle(edge.from, "link")
+  let handle2 = handle.Handle(edge.to, "link")
   clique.edge(handle1, handle2, [edge.linear()], [])
 }
 
-fn get_node_element(node: model.Node) -> Element(Msg) {
+fn get_node_element(node: layout.NodeLayout) -> Element(Msg) {
   let attributes = [
     node.position(node.x, node.y),
     attribute.class("bg-pink-50 rounded border-2 border-pink-500"),
@@ -71,5 +77,4 @@ fn get_node_element(node: model.Node) -> Element(Msg) {
       html.text(node.label),
     ]),
   ])
-  |> echo
 }

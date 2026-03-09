@@ -1,5 +1,5 @@
 -module(asterism_ffi).
--export([get_init_process/0, get_children/1, get_linked_processes/1, get_process_name/1]).
+-export([get_init_process/0, get_children/1, get_linked_processes/1, get_process_name/1, get_all_processes/0, pid_to_int/1]).
 
 get_init_process() ->
     whereis(init).
@@ -20,3 +20,11 @@ get_process_name(Pid) ->
         []                      -> none;
         {registered_name, Name} -> {some, Name}
     end.
+
+get_all_processes() ->
+    erlang:processes().
+
+pid_to_int(Pid) ->
+    PidStr = erlang:pid_to_list(Pid),           % "<0.42.0>"
+    [_, Id, _] = string:split(PidStr, ".", all), % ["<0", "42", "0>"]
+    list_to_integer(Id).
