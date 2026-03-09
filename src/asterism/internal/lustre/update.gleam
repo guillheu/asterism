@@ -1,25 +1,35 @@
 import asterism/internal/lustre/model.{type Model}
+import asterism/internal/lustre/update/types.{type Msg}
 import asterism/internal/process_tree/layout
-import gleam/option.{type Option}
+import gleam/int
+import gleam/list
 import lustre/effect.{type Effect}
 
-pub type Msg {
-  ServerFinishedInitializingGraph(GraphData)
+pub fn update(_model: Model, message: types.Msg) -> #(Model, Effect(Msg)) {
+  case message {
+    types.ServerInitializedGraph(graph_data) -> #(
+      data_to_layout(graph_data) |> layout.layout,
+      effect.none(),
+    )
+  }
 }
 
-pub type GraphData {
-  GraphData(nodes: List(Node), edges: List(Edge))
+fn data_to_layout(graph_data: types.GraphData) -> Model {
+  let nodes =
+    list.map(graph_data.nodes, fn(node) {
+      let id = int.to_string(node.id)
+      let label = node.label
+      let x = 0.0
+      let y = 0.0
+      layout.NodeLayout(id:, label:, x:, y:)
+    })
+  let edges =
+    list.map(graph_data.edges, fn(edge) {
+      let label = edge.label
+      let from = int.to_string(edge.node_id_1)
+      let to = int.to_string(edge.node_id_2)
+      layout.EdgeLayout(label:, from:, to:)
+    })
+  layout.GraphLayout(nodes:, edges:)
+  |> layout.layout
 }
-
-pub type Node {
-  Node(id: Int, label: Option(String))
-}
-
-pub type Edge {
-  Edge(id: Int, label: Option(String), node_id_1: Int, node_id_2: Int)
-}
-
-pub fn update(model: Model, message: Msg) -> #(Model, Effect(Msg)) {
-  #(model, effect.none())
-}
-// fn data_to_layout()

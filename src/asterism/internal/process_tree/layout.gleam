@@ -8,7 +8,7 @@ pub type GraphLayout {
 }
 
 pub type NodeLayout {
-  NodeLayout(id: String, label: String, x: Float, y: Float)
+  NodeLayout(id: String, label: Option(String), x: Float, y: Float)
 }
 
 pub type EdgeLayout {

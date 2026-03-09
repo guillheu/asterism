@@ -1,5 +1,5 @@
 import asterism/internal/lustre/model.{type Model}
-import asterism/internal/lustre/update.{type Msg}
+import asterism/internal/lustre/update/types.{type Msg}
 import asterism/internal/process_tree/layout
 import clique
 import clique/background
@@ -9,6 +9,7 @@ import clique/node
 import clique/transform
 import gleam/int
 import gleam/list
+import gleam/option
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -74,7 +75,9 @@ fn get_node_element(node: layout.NodeLayout) -> Element(Msg) {
       clique.handle("link", [
         attribute.class("absolute -left-1 top-1/4 bg-black rounded-full size-2"),
       ]),
-      html.text(node.label),
+      option.map(node.label, html.text)
+        |> option.unwrap(html.div([attribute.class("hidden")], [])),
+      // html.text(node.label),
     ]),
   ])
 }

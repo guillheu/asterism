@@ -1,5 +1,5 @@
 import asterism/internal/lustre/app
-import asterism/internal/lustre/update.{type Msg}
+import asterism/internal/lustre/update/types.{type Msg}
 import gleam/erlang/process.{type Selector, type Subject}
 import gleam/http/request
 import gleam/http/response

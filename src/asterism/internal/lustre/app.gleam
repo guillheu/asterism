@@ -1,5 +1,7 @@
 import asterism/internal/lustre/model.{type Model}
-import asterism/internal/lustre/update.{type Msg}
+import asterism/internal/lustre/update
+import asterism/internal/lustre/update/side_effects
+import asterism/internal/lustre/update/types.{type Msg}
 import asterism/internal/lustre/view
 import asterism/internal/process_tree/layout
 import lustre
@@ -14,5 +16,5 @@ pub fn app() -> lustre.App(Nil, Model, Msg) {
 }
 
 fn init(_: Nil) -> #(Model, Effect(Msg)) {
-  #(layout.GraphLayout([], []), effect.none())
+  #(layout.GraphLayout([], []), side_effects.init())
 }
