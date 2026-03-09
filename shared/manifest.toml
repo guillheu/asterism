@@ -18,6 +18,7 @@ packages = [
 [requirements]
 clique = { git = "git@github.com:hayleigh-dot-dev/clique.git", ref = "main" }
 gleam_community_maths = { version = ">= 2.0.1 and < 3.0.0" }
+gleam_json = { version = ">= 3.1.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
 lustre = { version = ">= 5.6.0 and < 6.0.0" }
