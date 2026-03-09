@@ -1,4 +1,4 @@
-name = "front"
+name = "client"
 version = "1.0.0"
 target = "javascript"
 
@@ -25,7 +25,8 @@ lustre_dev_tools = ">= 2.3.4 and < 3.0.0"
 [tools.lustre.html]
 scripts = [{ src = "/lustre/runtime.mjs", type = "module" }]
 stylesheets = [{ href = "index.css" }]
-title = "Asterism"
+title = "server"
 
 [tools.lustre.bin]
 bun = "system"
+tailwindcss = "system"

@@ -1,5 +1,3 @@
-import asterism/internal/lustre/app
-import asterism/internal/lustre/update/types.{type Msg}
 import gleam/erlang/process.{type Selector, type Subject}
 import gleam/http/request
 import gleam/http/response
@@ -8,6 +6,8 @@ import gleam/option.{type Option, Some}
 import lustre
 import lustre/server_component
 import mist
+import server/internal/lustre/app
+import server/internal/lustre/update/types.{type Msg}
 
 type ComponentState {
   ComponentState(

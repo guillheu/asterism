@@ -1,6 +1,3 @@
-import asterism/internal/lustre/model.{type Model}
-import asterism/internal/lustre/update/types.{type Msg}
-import asterism/internal/process_tree/layout
 import clique
 import clique/background
 import clique/edge
@@ -13,6 +10,9 @@ import gleam/option
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
+import server/internal/lustre/model.{type Model}
+import server/internal/lustre/update/types.{type Msg}
+import server/internal/process_tree/layout
 
 const scale_from_layout = 1000.0
 

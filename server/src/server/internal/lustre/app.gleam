@@ -1,11 +1,11 @@
-import asterism/internal/lustre/model.{type Model}
-import asterism/internal/lustre/update
-import asterism/internal/lustre/update/side_effects
-import asterism/internal/lustre/update/types.{type Msg}
-import asterism/internal/lustre/view
-import asterism/internal/process_tree/layout
 import lustre
 import lustre/effect.{type Effect}
+import server/internal/lustre/model.{type Model}
+import server/internal/lustre/update
+import server/internal/lustre/update/side_effects
+import server/internal/lustre/update/types.{type Msg}
+import server/internal/lustre/view
+import server/internal/process_tree/layout
 
 pub type Grid {
   Grid(cols: Int, col_w: Int, row_h: Int)

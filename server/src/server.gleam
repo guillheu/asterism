@@ -1,6 +1,6 @@
-import asterism/internal/server
 import gleam/erlang/process
 import mist
+import server/internal/server
 
 pub fn main() -> Nil {
   let server = server.get_server()

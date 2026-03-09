@@ -1,4 +1,4 @@
-name = "asterism"
+name = "server"
 version = "1.0.0"
 target = "erlang"
 
@@ -13,7 +13,7 @@ target = "erlang"
 # For a full reference of all the available options, you can have a look at
 # https://gleam.run/writing-gleam/gleam-toml/.
 
-internal_modules = ["asterism/internal", "asterism/internal/*" ]
+internal_modules = ["server/internal", "server/internal/*" ]
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"

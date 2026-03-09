@@ -1,9 +1,9 @@
-import asterism/internal/lustre/model.{type Model}
-import asterism/internal/lustre/update/types.{type Msg}
-import asterism/internal/process_tree/layout
 import gleam/int
 import gleam/list
 import lustre/effect.{type Effect}
+import server/internal/lustre/model.{type Model}
+import server/internal/lustre/update/types.{type Msg}
+import server/internal/process_tree/layout
 
 pub fn update(_model: Model, message: types.Msg) -> #(Model, Effect(Msg)) {
   case message {

@@ -1,14 +1,14 @@
-import asterism/internal/lustre/update/types.{
-  type GraphData, type Msg, EdgeData, GraphData, NodeData,
-  ServerInitializedGraph,
-}
-import asterism/internal/process_tree
 import gleam/int
 import gleam/list
 import gleam/option
 import gleam/set
 import gleaph
 import lustre/effect.{type Effect}
+import server/internal/lustre/update/types.{
+  type GraphData, type Msg, EdgeData, GraphData, NodeData,
+  ServerInitializedGraph,
+}
+import server/internal/process_tree
 
 // After we migrate, this side effect should instead just listen on a websocket to the server
 // aaaaaaall this compute should be server-side, the client should know nothing of the process_tree
