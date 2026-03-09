@@ -7,7 +7,7 @@ import lustre
 import lustre/server_component
 import mist
 import server/internal/lustre/app
-import server/internal/lustre/update/types.{type Msg}
+import shared/update/types.{type Msg}
 
 type ComponentState {
   ComponentState(

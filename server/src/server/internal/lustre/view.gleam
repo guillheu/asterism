@@ -11,8 +11,8 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import server/internal/lustre/model.{type Model}
-import server/internal/lustre/update/types.{type Msg}
 import server/internal/process_tree/layout
+import shared/update/types.{type Msg}
 
 const scale_from_layout = 1000.0
 

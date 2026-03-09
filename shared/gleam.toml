@@ -1,6 +1,5 @@
-name = "client"
+name = "shared"
 version = "1.0.0"
-target = "javascript"
 
 # Fill out these fields if you intend to generate HTML documentation or publish
 # your project to the Hex package manager.
@@ -15,19 +14,6 @@ target = "javascript"
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
-lustre = ">= 5.6.0 and < 6.0.0"
-clique = { git = "git@github.com:hayleigh-dot-dev/clique.git", ref = "main" }
-shared = { path = "../shared" }
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
-lustre_dev_tools = ">= 2.3.4 and < 3.0.0"
-
-[tools.lustre.html]
-scripts = [{ src = "/lustre/runtime.mjs", type = "module" }]
-stylesheets = [{ href = "index.css" }]
-title = "server"
-
-[tools.lustre.bin]
-bun = "system"
-tailwindcss = "system"

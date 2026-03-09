@@ -4,11 +4,11 @@ import gleam/option
 import gleam/set
 import gleaph
 import lustre/effect.{type Effect}
-import server/internal/lustre/update/types.{
+import server/internal/process_tree
+import shared/update/types.{
   type GraphData, type Msg, EdgeData, GraphData, NodeData,
   ServerInitializedGraph,
 }
-import server/internal/process_tree
 
 // After we migrate, this side effect should instead just listen on a websocket to the server
 // aaaaaaall this compute should be server-side, the client should know nothing of the process_tree
