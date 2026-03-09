@@ -36,6 +36,7 @@ pub fn view(model: GraphLayout) -> Element(Msg) {
       [
         clique.initial_transform(transform),
         attribute.class("w-full h-full bg-white rounded-lg shadow-md"),
+        // attribute.styles([#("height", "500px")]),
       ],
       [
         clique.background([

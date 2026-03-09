@@ -4,7 +4,7 @@ import gleam/http/response
 import gleam/option.{None}
 import mist
 
-pub fn serve_runtime() -> response.Response(mist.ResponseData) {
+fn serve_runtime() -> response.Response(mist.ResponseData) {
   // `application` module from the `gleam_erlang` package
   let assert Ok(lustre_priv) = application.priv_directory("lustre")
   let file_path = lustre_priv <> "/static/lustre-server-component.mjs"

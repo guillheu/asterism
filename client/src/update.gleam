@@ -1,18 +1,66 @@
+import gleam/bit_array
 import gleam/int
+import gleam/json
 import gleam/list
-import gleam/option.{None}
+import gleam/option.{None, Some}
+import gleam/string
 import lustre/effect.{type Effect}
+import lustre_websocket as ws
 import model.{type Model, Model}
 import shared/layout
 import shared/update/types.{type Msg}
 
-pub fn update(model: Model, message: types.Msg) -> #(Model, Effect(Msg)) {
+pub type ClientMsg {
+  WebSocketMessage(ws.WebSocketEvent)
+  AppMessage(Msg)
+}
+
+pub fn update(model: Model, message: ClientMsg) -> #(Model, Effect(ClientMsg)) {
   case message {
-    types.ServerInitializedGraph(graph_data) -> #(
-      data_to_layout(graph_data) |> layout.layout |> Model(model.ws_connection),
+    WebSocketMessage(ws_message) -> handle_ws_msg(model, ws_message)
+    AppMessage(app_msg) -> handle_app_msg(model, app_msg)
+  }
+}
+
+fn handle_ws_msg(
+  model: Model,
+  ws_message: ws.WebSocketEvent,
+) -> #(Model, Effect(ClientMsg)) {
+  case ws_message {
+    ws.OnOpen(ws_conn) -> #(
+      Model(..model, ws_conn: Some(ws_conn)),
+      ws.send(
+        ws_conn,
+        types.msg_to_json(types.ClientRequestedFullGraph) |> json.to_string,
+      ),
+    )
+    ws.OnTextMessage(json) ->
+      case json.parse(json, types.msg_decoder()) {
+        Ok(msg) -> handle_app_msg(model, msg)
+        Error(reason) ->
+          panic as {
+            "Server sent an unknown text frame, which should never happen. It's possible your WS connection has been highjacked! : "
+            <> string.inspect(reason)
+          }
+      }
+    ws.OnBinaryMessage(bitarray) ->
+      panic as {
+        "Server sent an unknown binary frame, which should never happen. It's possible your WS connection has been highjacked! Found binary frame: "
+        <> bit_array.base16_encode(bitarray)
+      }
+    ws.InvalidUrl -> #(model, effect.none())
+    ws.OnClose(_) -> #(Model(..model, ws_conn: None), effect.none())
+  }
+}
+
+fn handle_app_msg(model: Model, app_msg: Msg) -> #(Model, Effect(ClientMsg)) {
+  case app_msg {
+    types.ServerInitializedGraph(graph:) -> #(
+      Model(..model, graph_layout: data_to_layout(graph)),
       effect.none(),
     )
-    types.ClientRequestedFullGraph -> #(model, effect.none())
+    types.ClientRequestedFullGraph ->
+      panic as "Server sent a ClientRequestedFullGraph message, which should never happen. It's possible your WS connection has been highjacked!"
   }
 }
 
