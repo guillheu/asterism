@@ -4,18 +4,33 @@ import gleam/option.{type Option}
 
 pub type Msg {
   ServerInitializedGraph(graph: GraphData)
-}
-
-pub fn msg_to_json(msg: Msg) -> json.Json {
-  let ServerInitializedGraph(graph:) = msg
-  json.object([
-    #("graph", graph_data_to_json(graph)),
-  ])
+  ClientRequestedFullGraph
 }
 
 pub fn msg_decoder() -> decode.Decoder(Msg) {
-  use graph <- decode.field("graph", graph_data_decoder())
-  decode.success(ServerInitializedGraph(graph:))
+  use variant <- decode.field("type", decode.string)
+  case variant {
+    "server_initialized_graph" -> {
+      use graph <- decode.field("graph", graph_data_decoder())
+      decode.success(ServerInitializedGraph(graph:))
+    }
+    "client_requested_full_graph" -> decode.success(ClientRequestedFullGraph)
+    _ -> decode.failure(ClientRequestedFullGraph, "Msg")
+  }
+}
+
+pub fn msg_to_json(msg: Msg) -> json.Json {
+  case msg {
+    ServerInitializedGraph(graph:) ->
+      json.object([
+        #("type", json.string("server_initialized_graph")),
+        #("graph", graph_data_to_json(graph)),
+      ])
+    ClientRequestedFullGraph ->
+      json.object([
+        #("type", json.string("client_requested_full_graph")),
+      ])
+  }
 }
 
 pub type GraphData {
