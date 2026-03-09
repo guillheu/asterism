@@ -3,14 +3,15 @@ import asterism/internal/lustre/update/types.{
   ServerInitializedGraph,
 }
 import asterism/internal/process_tree
-import gleam/erlang/process.{type Pid}
 import gleam/int
 import gleam/list
-import gleam/option.{Some}
+import gleam/option
 import gleam/set
-import gleam/string
 import gleaph
 import lustre/effect.{type Effect}
+
+// After we migrate, this side effect should instead just listen on a websocket to the server
+// aaaaaaall this compute should be server-side, the client should know nothing of the process_tree
 
 pub fn init() -> Effect(Msg) {
   effect.from(fn(dispatch) {
