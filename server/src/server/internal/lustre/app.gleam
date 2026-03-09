@@ -1,11 +1,11 @@
 import lustre
 import lustre/effect.{type Effect}
-import server/internal/lustre/model.{type Model}
 import server/internal/lustre/update
 import server/internal/lustre/update/side_effects
-import server/internal/lustre/view
-import server/internal/process_tree/layout
+import shared/layout
+import shared/model.{type Model}
 import shared/update/types.{type Msg}
+import shared/view
 
 pub type Grid {
   Grid(cols: Int, col_w: Int, row_h: Int)
