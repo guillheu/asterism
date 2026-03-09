@@ -1,7 +1,9 @@
+import gleam/option.{None}
 import lustre
 import lustre/effect.{type Effect}
+import lustre/element
+import model.{type Model}
 import shared/layout
-import shared/model.{type Model}
 import shared/update/types.{type Msg}
 import shared/view
 import update
@@ -12,9 +14,13 @@ pub type Grid {
 }
 
 pub fn app() -> lustre.App(Nil, Model, Msg) {
-  lustre.application(init, update.update, view.view)
+  lustre.application(init, update.update, view)
+}
+
+fn view(model: Model) -> element.Element(Msg) {
+  view.view(model.graph_layout)
 }
 
 fn init(_: Nil) -> #(Model, Effect(Msg)) {
-  #(layout.GraphLayout([], []), side_effects.init())
+  #(layout.GraphLayout([], []) |> model.Model(None), side_effects.init())
 }

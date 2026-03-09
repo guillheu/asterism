@@ -1,20 +1,22 @@
 import gleam/int
 import gleam/list
+import gleam/option.{None}
 import lustre/effect.{type Effect}
+import model.{type Model, Model}
 import shared/layout
-import shared/model.{type Model}
 import shared/update/types.{type Msg}
 
-pub fn update(_model: Model, message: types.Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, message: types.Msg) -> #(Model, Effect(Msg)) {
   case message {
     types.ServerInitializedGraph(graph_data) -> #(
-      data_to_layout(graph_data) |> layout.layout,
+      data_to_layout(graph_data) |> layout.layout |> Model(model.ws_connection),
       effect.none(),
     )
+    types.ClientRequestedFullGraph -> #(model, effect.none())
   }
 }
 
-fn data_to_layout(graph_data: types.GraphData) -> Model {
+fn data_to_layout(graph_data: types.GraphData) -> layout.GraphLayout {
   let nodes =
     list.map(graph_data.nodes, fn(node) {
       let id = int.to_string(node.id)

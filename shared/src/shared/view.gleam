@@ -10,13 +10,12 @@ import gleam/option
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import shared/layout
-import shared/model.{type Model}
+import shared/layout.{type GraphLayout}
 import shared/update/types.{type Msg}
 
 const scale_from_layout = 1000.0
 
-pub fn view(model: Model) -> Element(Msg) {
+pub fn view(model: GraphLayout) -> Element(Msg) {
   let transform = transform.init()
   let nodes =
     model.nodes
