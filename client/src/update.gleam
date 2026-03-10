@@ -1,5 +1,8 @@
+import elk
 import gleam/bit_array
 import gleam/int
+import gleam/javascript/array.{type Array}
+import gleam/javascript/promise.{type Promise}
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
@@ -13,12 +16,17 @@ import shared/update/types.{type Msg}
 pub type ClientMsg {
   WebSocketMessage(ws.WebSocketEvent)
   AppMessage(Msg)
+  LayoutEngineFinishedRendering(layout.GraphLayout)
 }
 
 pub fn update(model: Model, message: ClientMsg) -> #(Model, Effect(ClientMsg)) {
   case message {
     WebSocketMessage(ws_message) -> handle_ws_msg(model, ws_message)
     AppMessage(app_msg) -> handle_app_msg(model, app_msg)
+    LayoutEngineFinishedRendering(graph_layout) -> #(
+      Model(..model, graph_layout:) |> echo,
+      effect.none(),
+    )
   }
 }
 
@@ -55,10 +63,10 @@ fn handle_ws_msg(
 
 fn handle_app_msg(model: Model, app_msg: Msg) -> #(Model, Effect(ClientMsg)) {
   case app_msg {
-    types.ServerInitializedGraph(graph:) -> #(
-      Model(..model, graph_layout: data_to_layout(graph)),
-      effect.none(),
-    )
+    types.ServerInitializedGraph(graph:) -> {
+      let graph_layout = data_to_layout(graph)
+      #(Model(..model, graph_layout:), generate_layout(graph_layout))
+    }
     types.ClientRequestedFullGraph ->
       panic as "Server sent a ClientRequestedFullGraph message, which should never happen. It's possible your WS connection has been highjacked!"
   }
@@ -82,4 +90,17 @@ fn data_to_layout(graph_data: types.GraphData) -> layout.GraphLayout {
     })
   layout.GraphLayout(nodes:, edges:)
   |> layout.layout
+}
+
+fn generate_layout(graph_layout: layout.GraphLayout) -> effect.Effect(ClientMsg) {
+  let nodes = graph_layout.nodes |> array.from_list
+  let edges = graph_layout.edges |> array.from_list
+
+  use dispatch <- effect.from
+  promise.tap(elk.do_get_elk_layout(nodes, edges), fn(new_nodes) {
+    layout.GraphLayout(..graph_layout, nodes: new_nodes |> array.to_list)
+    |> LayoutEngineFinishedRendering
+    |> dispatch
+  })
+  Nil
 }

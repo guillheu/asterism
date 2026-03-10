@@ -13,10 +13,11 @@ import lustre/element/html
 import shared/layout.{type GraphLayout}
 import shared/update/types.{type Msg}
 
-const scale_from_layout = 1000.0
+const scale_from_layout = 1.0
 
 pub fn view(model: GraphLayout) -> Element(Msg) {
   let transform = transform.init()
+  let transform = #(transform.0, transform.1, 0.3)
   let nodes =
     model.nodes
     |> list.map(fn(node) {
@@ -71,13 +72,22 @@ fn get_node_element(node: layout.NodeLayout) -> Element(Msg) {
   ]
 
   clique.node(node.id, attributes, [
-    html.div([attribute.class("flex relative items-center py-1 px-2 size-16")], [
-      clique.handle("link", [
-        attribute.class("absolute -left-1 top-1/4 bg-black rounded-full size-2"),
-      ]),
-      option.map(node.label, html.text)
-        |> option.unwrap(html.div([attribute.class("hidden")], [])),
-      // html.text(node.label),
-    ]),
+    html.div(
+      [
+        attribute.class(
+          "flex relative items-center py-1 px-2 w-[150px] h-[40px]",
+        ),
+      ],
+      [
+        clique.handle("link", [
+          attribute.class(
+            "absolute -left-1 top-1/4 bg-black rounded-full size-2",
+          ),
+        ]),
+        option.map(node.label, html.text)
+          |> option.unwrap(html.div([attribute.class("hidden")], [])),
+        // html.text(node.label),
+      ],
+    ),
   ])
 }

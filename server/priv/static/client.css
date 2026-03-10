@@ -230,15 +230,17 @@
     width: calc(var(--spacing) * 2);
     height: calc(var(--spacing) * 2);
   }
-  .size-16 {
-    width: calc(var(--spacing) * 16);
-    height: calc(var(--spacing) * 16);
+  .h-\[40px\] {
+    height: 40px;
   }
   .h-full {
     height: 100%;
   }
   .h-screen {
     height: 100vh;
+  }
+  .w-\[150px\] {
+    width: 150px;
   }
   .w-full {
     width: 100%;
