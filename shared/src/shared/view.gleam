@@ -81,7 +81,7 @@ fn get_node_element(node: layout.NodeLayout) -> Element(Msg) {
       [
         clique.handle("link", [
           attribute.class(
-            "absolute -left-1 top-1/4 bg-black rounded-full size-2",
+            "absolute left-1/2 -top-1 bg-black rounded-full size-2",
           ),
         ]),
         option.map(node.label, html.text)

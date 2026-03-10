@@ -6,3 +6,6 @@ erl_crash.dump
 #Added automatically by Lustre Dev Tools
 /.lustre
 /dist
+/priv/static/index.html
+/priv/static/client.js
+/priv/static/client.css
