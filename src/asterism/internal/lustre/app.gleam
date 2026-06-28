@@ -21,18 +21,5 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
   let graph = process_tree.get_process_forest()
   let laid_out_graph = sugiyama.apply(graph, 5)
 
-  #(Model(todo, todo), effect.none())
-}
-
-fn process_to_node_indexed(
-  process: process_tree.Process,
-  index: Int,
-) -> model.Node {
-  model.Node(
-    process:,
-    id: "node-" <> int.to_string(index),
-    label: process_tree.process_to_string(process),
-    x: int.to_float({ index % 10 } * 100),
-    y: int.to_float({ index / 10 } * 100),
-  )
+  #(Model(laid_out_graph), effect.none())
 }

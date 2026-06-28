@@ -34,7 +34,7 @@ fn recurse_walk_process_graph(
   current_pids: List(Pid),
 ) -> graph.Graph(String, Process, Nil) {
   case current_pids {
-    [current_pid, ..next_pids] -> {
+    [current_pid, ..current_remaining_pids] -> {
       let linked_to =
         get_linked_processes(current_pid)
         |> list.filter(fn(linked_process) {
@@ -72,6 +72,7 @@ fn recurse_walk_process_graph(
       //   |> dict.combine(already_seen_processes, fn(_, _) {
       //     panic as "Process should have been filtered (this is a bad error message)"
       //   })
+      let next_pids = list.append(current_remaining_pids, linked_to)
       recurse_walk_process_graph(next_graph, next_seen_processes, next_pids)
     }
     [] -> current_graph
