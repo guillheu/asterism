@@ -1,11 +1,6 @@
-import clique
 import gleam/bytes_tree
 import gleam/http/response.{type Response}
 import gleam/option.{None}
-import lustre/attribute
-import lustre/element
-import lustre/element/html.{html}
-import lustre/server_component
 import mist.{type ResponseData}
 
 pub fn serve_html() -> Response(ResponseData) {

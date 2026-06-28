@@ -1,3 +1,6 @@
+import aonyx/graph
+import aonyx/graph/edge
+import aonyx/graph/node
 import gleam/dict.{type Dict}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
@@ -21,42 +24,57 @@ pub fn process_to_string(proc: Process) -> String {
   }
 }
 
-pub fn get_process_tree() -> #(List(Process), List(Link)) {
-  let root_pid = get_init_process()
-  let #(processes, links) =
-    dict.from_list([])
-    |> recurse_walk_process_graph([], [root_pid])
-
-  let processes = dict.values(processes)
-  #(processes, links)
+pub fn get_process_forest() -> graph.Graph(String, Process, Nil) {
+  recurse_walk_process_graph(graph.new(), dict.new(), [get_init_process()])
 }
 
 fn recurse_walk_process_graph(
-  already_seen_processes: Dict(Pid, Process),
-  known_links: List(Link),
-  next: List(Pid),
-) -> #(Dict(Pid, Process), List(Link)) {
-  case next {
-    [first, ..rest] -> {
+  current_graph: graph.Graph(String, Process, Nil),
+  current_seen_processes: Dict(Pid, Nil),
+  current_pids: List(Pid),
+) -> graph.Graph(String, Process, Nil) {
+  case current_pids {
+    [current_pid, ..next_pids] -> {
       let linked_to =
-        get_linked_processes(first)
+        get_linked_processes(current_pid)
         |> list.filter(fn(linked_process) {
-          !dict.has_key(already_seen_processes, linked_process)
+          !dict.has_key(current_seen_processes, linked_process)
         })
 
-      let known_links =
-        list.append(known_links, list.map(linked_to, PlainLink(_, first)))
+      let current_process_id_string =
+        process_from_pid(current_pid) |> process_to_string
 
-      let rest = list.append(rest, linked_to)
-      let already_seen_processes =
-        list.map(linked_to, fn(proc) { #(proc, process_from_pid(proc)) })
+      let next_seen_processes =
+        list.map(linked_to, fn(pid_to) { #(pid_to, Nil) })
         |> dict.from_list
-        |> dict.combine(already_seen_processes, fn(_, _) {
+        |> dict.combine(current_seen_processes, fn(_, _) {
           panic as "Process should have been filtered (this is a bad error message)"
         })
-      recurse_walk_process_graph(already_seen_processes, known_links, rest)
+
+      let next_graph =
+        list.fold(linked_to, current_graph, fn(graph, pid) {
+          let process = process_from_pid(pid)
+          let process_string_id = process_to_string(process)
+          graph.insert_edge(
+            graph,
+            edge.new(current_process_id_string, process_string_id),
+            process,
+          )
+        })
+
+      // let known_links =
+      //   list.append(known_links, list.map(linked_to, PlainLink(_, first)))
+
+      // let rest = list.append(rest, linked_to)
+      // let already_seen_processes =
+      //   list.map(linked_to, fn(proc) { #(proc, process_from_pid(proc)) })
+      //   |> dict.from_list
+      //   |> dict.combine(already_seen_processes, fn(_, _) {
+      //     panic as "Process should have been filtered (this is a bad error message)"
+      //   })
+      recurse_walk_process_graph(next_graph, next_seen_processes, next_pids)
     }
-    [] -> #(already_seen_processes, known_links)
+    [] -> current_graph
   }
 }
 
