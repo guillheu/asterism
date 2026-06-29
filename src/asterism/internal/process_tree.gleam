@@ -25,7 +25,9 @@ pub fn process_to_string(proc: Process) -> String {
 }
 
 pub fn get_process_forest() -> graph.Graph(String, Process, Nil) {
-  recurse_walk_process_graph(graph.new(), dict.new(), [get_init_process()])
+  recurse_walk_process_graph(graph.new(), dict.new(), [
+    get_init_process(),
+  ])
 }
 
 fn recurse_walk_process_graph(

@@ -81,5 +81,4 @@ fn get_node_element(
       html.text(node.value.0 |> process_tree.process_to_string),
     ]),
   ])
-  |> echo
 }
