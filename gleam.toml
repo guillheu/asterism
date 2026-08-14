@@ -23,9 +23,9 @@ gleam_erlang = ">= 1.3.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
 mist = ">= 6.0.0 and < 7.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
-clique = { git = "git@github.com:hayleigh-dot-dev/clique.git", ref = "main" }
+clique = { git = "git@github.com:guillheu/clique.git", ref = "main" }
 aonyx_graph = ">= 2.0.0 and < 3.0.0"
-sugiyama = { path = "./sugiyama-gleam" }
+sugiyama = { git = "git@github.com:guillheu/sugiyama-gleam.git", ref = "main" }
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
