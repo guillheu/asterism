@@ -7352,6 +7352,13 @@ class BezierFromPositions extends CustomType {
     this.to_position = to_position;
   }
 }
+class BezierFromControlPoints extends CustomType {
+  constructor(control_point_1, control_point_2) {
+    super();
+    this.control_point_1 = control_point_1;
+    this.control_point_2 = control_point_2;
+  }
+}
 function format(value) {
   let _pipe = value;
   let _pipe$1 = to_precision(_pipe, 2);
@@ -7454,17 +7461,35 @@ function default$(kind, from3, to) {
     return step(from3[0], from3[1], to[0], to[1], mid_ratio);
   } else if (kind instanceof Linear) {
     return linear(from3[0], from3[1], to[0], to[1]);
-  } else {
+  } else if (kind instanceof BezierFromPositions) {
     let from_pos = kind.from_position;
     let to_pos = kind.to_position;
     return bezier_from_directions(from3[0], from3[1], from_pos, to[0], to[1], to_pos);
+  } else {
+    let control_point_1 = kind.control_point_1;
+    let control_point_2 = kind.control_point_2;
+    return bezier_from_control_points(from3[0], from3[1], to[0], to[1], control_point_1, control_point_2);
   }
 }
-function string_to_path_kind(kind, bezier_from_position, bezier_to_position, step_mid_ratio) {
+function string_to_path_kind(kind, bezier_from_position, bezier_to_position, bezier_control_point_1_x, bezier_control_point_1_y, bezier_control_point_2_x, bezier_control_point_2_y, step_mid_ratio) {
   if (kind === "linear") {
     return new Linear;
   } else if (kind === "step") {
     return new Step(unwrap(step_mid_ratio, 0.5));
+  } else if (kind === "bezier-from-control-points") {
+    return new BezierFromControlPoints([
+      unwrap(bezier_control_point_1_x, 0),
+      unwrap((() => {
+        let _pipe = bezier_control_point_1_y;
+        return echo(_pipe, undefined, "src/clique/internal/path.gleam", 242);
+      })(), 0)
+    ], [
+      unwrap(bezier_control_point_2_x, 0),
+      unwrap((() => {
+        let _pipe = bezier_control_point_2_y;
+        return echo(_pipe, undefined, "src/clique/internal/path.gleam", 246);
+      })(), 0)
+    ]);
   } else {
     return new BezierFromPositions(unwrap(bezier_from_position, new Left), unwrap(bezier_to_position, new Right));
   }
@@ -7478,13 +7503,23 @@ function path_kind_to_json(path_kind) {
     ]));
   } else if (path_kind instanceof Linear) {
     return object2(toList([["type", string3("linear")]]));
-  } else {
+  } else if (path_kind instanceof BezierFromPositions) {
     let from_position = path_kind.from_position;
     let to_position = path_kind.to_position;
     return object2(toList([
-      ["type", string3("bezier")],
+      ["type", string3("bezier-from-positions")],
       ["from_position", position_to_json(from_position)],
       ["to_position", position_to_json(to_position)]
+    ]));
+  } else {
+    let control_point_1 = path_kind.control_point_1;
+    let control_point_2 = path_kind.control_point_2;
+    return object2(toList([
+      ["type", string3("bezier-from-control-points")],
+      ["control_point_1_x", float3(control_point_1[0])],
+      ["control_point_1_y", float3(control_point_1[1])],
+      ["control_point_2_x", float3(control_point_2[0])],
+      ["control_point_2_y", float3(control_point_2[1])]
     ]));
   }
 }
@@ -7507,16 +7542,240 @@ function path_kind_decoder() {
     }
   });
 }
+function echo(value, message, file, line) {
+  const grey = "\x1B[90m";
+  const reset_color = "\x1B[39m";
+  const file_line = `${file}:${line}`;
+  const inspector = new Echo$Inspector;
+  const string_value = inspector.inspect(value);
+  const string_message = message === undefined ? "" : " " + message;
+  if (globalThis.process?.stderr?.write) {
+    const string5 = `${grey}${file_line}${reset_color}${string_message}
+${string_value}
+`;
+    globalThis.process.stderr.write(string5);
+  } else if (globalThis.Deno) {
+    const string5 = `${grey}${file_line}${reset_color}${string_message}
+${string_value}
+`;
+    globalThis.Deno.stderr.writeSync(new TextEncoder().encode(string5));
+  } else {
+    const string5 = `${file_line}${string_message}
+${string_value}`;
+    globalThis.console.log(string5);
+  }
+  return value;
+}
+
+class Echo$Inspector {
+  #references = new globalThis.Set;
+  #isDict(value) {
+    try {
+      const empty_dict = make();
+      const dict_class = empty_dict.constructor;
+      return value instanceof dict_class;
+    } catch {
+      return false;
+    }
+  }
+  #float(float4) {
+    const string5 = float4.toString().replace("+", "");
+    if (string5.indexOf(".") >= 0) {
+      return string5;
+    } else {
+      const index4 = string5.indexOf("e");
+      if (index4 >= 0) {
+        return string5.slice(0, index4) + ".0" + string5.slice(index4);
+      } else {
+        return string5 + ".0";
+      }
+    }
+  }
+  inspect(v) {
+    const t = typeof v;
+    if (v === true)
+      return "True";
+    if (v === false)
+      return "False";
+    if (v === null)
+      return "//js(null)";
+    if (v === undefined)
+      return "Nil";
+    if (t === "string")
+      return this.#string(v);
+    if (t === "bigint" || globalThis.Number.isInteger(v))
+      return v.toString();
+    if (t === "number")
+      return this.#float(v);
+    if (v instanceof UtfCodepoint)
+      return this.#utfCodepoint(v);
+    if (v instanceof BitArray)
+      return this.#bit_array(v);
+    if (v instanceof globalThis.RegExp)
+      return `//js(${v})`;
+    if (v instanceof globalThis.Date)
+      return `//js(Date("${v.toISOString()}"))`;
+    if (v instanceof globalThis.Error)
+      return `//js(${v.toString()})`;
+    if (v instanceof globalThis.Function) {
+      const args = [];
+      for (const i of globalThis.Array(v.length).keys())
+        args.push(globalThis.String.fromCharCode(i + 97));
+      return `//fn(${args.join(", ")}) { ... }`;
+    }
+    if (this.#references.size === this.#references.add(v).size) {
+      return "//js(circular reference)";
+    }
+    let printed;
+    if (globalThis.Array.isArray(v)) {
+      printed = `#(${v.map((v2) => this.inspect(v2)).join(", ")})`;
+    } else if (v instanceof List) {
+      printed = this.#list(v);
+    } else if (v instanceof CustomType) {
+      printed = this.#customType(v);
+    } else if (this.#isDict(v)) {
+      printed = this.#dict(v);
+    } else if (v instanceof Set) {
+      return `//js(Set(${[...v].map((v2) => this.inspect(v2)).join(", ")}))`;
+    } else {
+      printed = this.#object(v);
+    }
+    this.#references.delete(v);
+    return printed;
+  }
+  #object(v) {
+    const name = globalThis.Object.getPrototypeOf(v)?.constructor?.name || "Object";
+    const props = [];
+    for (const k of globalThis.Object.keys(v)) {
+      props.push(`${this.inspect(k)}: ${this.inspect(v[k])}`);
+    }
+    const body = props.length ? " " + props.join(", ") + " " : "";
+    const head = name === "Object" ? "" : name + " ";
+    return `//js(${head}{${body}})`;
+  }
+  #dict(map8) {
+    let body = "dict.from_list([";
+    let first = true;
+    let key_value_pairs = fold(map8, [], (pairs, key, value) => {
+      pairs.push([key, value]);
+      return pairs;
+    });
+    key_value_pairs.sort();
+    key_value_pairs.forEach(([key, value]) => {
+      if (!first)
+        body = body + ", ";
+      body = body + "#(" + this.inspect(key) + ", " + this.inspect(value) + ")";
+      first = false;
+    });
+    return body + "])";
+  }
+  #customType(record) {
+    const props = globalThis.Object.keys(record).map((label) => {
+      const value = this.inspect(record[label]);
+      return isNaN(parseInt(label)) ? `${label}: ${value}` : value;
+    }).join(", ");
+    return props ? `${record.constructor.name}(${props})` : record.constructor.name;
+  }
+  #list(list4) {
+    if (list4 instanceof Empty) {
+      return "[]";
+    }
+    let char_out = 'charlist.from_string("';
+    let list_out = "[";
+    let current = list4;
+    while (current instanceof NonEmpty) {
+      let element4 = current.head;
+      current = current.tail;
+      if (list_out !== "[") {
+        list_out += ", ";
+      }
+      list_out += this.inspect(element4);
+      if (char_out) {
+        if (globalThis.Number.isInteger(element4) && element4 >= 32 && element4 <= 126) {
+          char_out += globalThis.String.fromCharCode(element4);
+        } else {
+          char_out = null;
+        }
+      }
+    }
+    if (char_out) {
+      return char_out + '")';
+    } else {
+      return list_out + "]";
+    }
+  }
+  #string(str) {
+    let new_str = '"';
+    for (let i = 0;i < str.length; i++) {
+      const char = str[i];
+      switch (char) {
+        case `
+`:
+          new_str += "\\n";
+          break;
+        case "\r":
+          new_str += "\\r";
+          break;
+        case "\t":
+          new_str += "\\t";
+          break;
+        case "\f":
+          new_str += "\\f";
+          break;
+        case "\\":
+          new_str += "\\\\";
+          break;
+        case '"':
+          new_str += "\\\"";
+          break;
+        default:
+          if (char < " " || char > "~" && char < " ") {
+            new_str += "\\u{" + char.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0") + "}";
+          } else {
+            new_str += char;
+          }
+      }
+    }
+    new_str += '"';
+    return new_str;
+  }
+  #utfCodepoint(codepoint2) {
+    return `//utfcodepoint(${globalThis.String.fromCodePoint(codepoint2.value)})`;
+  }
+  #bit_array(bits2) {
+    if (bits2.bitSize === 0) {
+      return "<<>>";
+    }
+    let acc = "<<";
+    for (let i = 0;i < bits2.byteSize - 1; i++) {
+      acc += bits2.byteAt(i).toString();
+      acc += ", ";
+    }
+    if (bits2.byteSize * 8 === bits2.bitSize) {
+      acc += bits2.byteAt(bits2.byteSize - 1).toString();
+    } else {
+      const trailingBitsCount = bits2.bitSize % 8;
+      acc += bits2.byteAt(bits2.byteSize - 1) >> 8 - trailingBitsCount;
+      acc += `:size(${trailingBitsCount})`;
+    }
+    acc += ">>";
+    return acc;
+  }
+}
 
 // build/dev/javascript/clique/clique/edge.mjs
 class Model4 extends CustomType {
-  constructor(from3, to, kind, bezier_from_position, bezier_to_position, step_mid_ratio) {
+  constructor(from3, to, kind, bezier_from_position, bezier_to_position, bezier_control_point_1_x, bezier_control_point_1_y, bezier_control_point_2_x, bezier_control_point_2_y, step_mid_ratio) {
     super();
     this.from = from3;
     this.to = to;
     this.kind = kind;
     this.bezier_from_position = bezier_from_position;
     this.bezier_to_position = bezier_to_position;
+    this.bezier_control_point_1_x = bezier_control_point_1_x;
+    this.bezier_control_point_1_y = bezier_control_point_1_y;
+    this.bezier_control_point_2_x = bezier_control_point_2_x;
+    this.bezier_control_point_2_y = bezier_control_point_2_y;
     this.step_mid_ratio = step_mid_ratio;
   }
 }
@@ -7556,6 +7815,34 @@ class ParentSetBezierFromPosition extends CustomType {
 }
 
 class ParentSetBezierToPosition extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetBezierControlPoint1X extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetBezierControlPoint1Y extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetBezierControlPoint2X extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetBezierControlPoint2Y extends CustomType {
   constructor(value) {
     super();
     this.value = value;
@@ -7750,53 +8037,77 @@ function emit_change2(old_from, old_to, new_from, new_to, kind) {
   }
 }
 function update7(prev, msg) {
-  let prev_path_kind = string_to_path_kind(prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+  let prev_path_kind = string_to_path_kind(prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
   if (msg instanceof ParentRemovedFrom) {
-    let next = new Model4(new None, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let next = new Model4(new None, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentRemovedTo) {
-    let next = new Model4(prev.from, new None, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let next = new Model4(prev.from, new None, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentSetFrom) {
     let value = msg.value;
-    let next = new Model4(new Some(value), prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let next = new Model4(new Some(value), prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentSetTo) {
     let value = msg.value;
-    let next = new Model4(prev.from, new Some(value), prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let next = new Model4(prev.from, new Some(value), prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentSetType) {
     let value = msg.value;
-    let next = new Model4(prev.from, prev.to, value, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
-    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let next = new Model4(prev.from, prev.to, value, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentSetBezierFromPosition) {
     let value = msg.value;
-    let next = new Model4(prev.from, prev.to, prev.kind, new Some(value), prev.bezier_to_position, prev.step_mid_ratio);
-    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let next = new Model4(prev.from, prev.to, prev.kind, new Some(value), prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
     return [next, effect];
   } else if (msg instanceof ParentSetBezierToPosition) {
     let value = msg.value;
-    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, new Some(value), prev.step_mid_ratio);
-    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, new Some(value), prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierControlPoint1X) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, new Some(value), prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierControlPoint1Y) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, new Some(value), prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierControlPoint2X) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, new Some(value), prev.bezier_control_point_2_y, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierControlPoint2Y) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, new Some(value), prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
     return [next, effect];
   } else {
     let value = msg.value;
-    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, new Some(value));
-    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, new Some(value));
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, prev.bezier_control_point_1_x, prev.bezier_control_point_1_y, prev.bezier_control_point_2_x, prev.bezier_control_point_2_y, next.step_mid_ratio);
     let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
     return [next, effect];
   }
 }
 function init6(_) {
-  let model = new Model4(new None, new None, "bezier-from-positions", new None, new None, new None);
+  let model = new Model4(new None, new None, "bezier-from-positions", new None, new None, new None, new None, new None, new None, new None);
   let effect = none();
   return [model, effect];
 }
@@ -8662,11 +8973,31 @@ function view6(model) {
           _block$2 = from_result(_pipe$4);
           let opt_bezier_to_pos = _block$2;
           let _block$3;
-          let _pipe$5 = attribute3(element4, "step-mid-ratio");
+          let _pipe$5 = attribute3(element4, "bezier-control-point-1-x");
           let _pipe$6 = try$(_pipe$5, parse_float);
           _block$3 = from_result(_pipe$6);
-          let opt_step_mid_ratio = _block$3;
-          let kind = string_to_path_kind(kind_string, opt_bezier_from_pos, opt_bezier_to_pos, opt_step_mid_ratio);
+          let opt_bezier_control_point_1_x = _block$3;
+          let _block$4;
+          let _pipe$7 = attribute3(element4, "bezier-control-point-1-y");
+          let _pipe$8 = try$(_pipe$7, parse_float);
+          _block$4 = from_result(_pipe$8);
+          let opt_bezier_control_point_1_y = _block$4;
+          let _block$5;
+          let _pipe$9 = attribute3(element4, "bezier-control-point-2-x");
+          let _pipe$10 = try$(_pipe$9, parse_float);
+          _block$5 = from_result(_pipe$10);
+          let opt_bezier_control_point_2_x = _block$5;
+          let _block$6;
+          let _pipe$11 = attribute3(element4, "bezier-control-point-2-y");
+          let _pipe$12 = try$(_pipe$11, parse_float);
+          _block$6 = from_result(_pipe$12);
+          let opt_bezier_control_point_2_y = _block$6;
+          let _block$7;
+          let _pipe$13 = attribute3(element4, "step-mid-ratio");
+          let _pipe$14 = try$(_pipe$13, parse_float);
+          _block$7 = from_result(_pipe$14);
+          let opt_step_mid_ratio = _block$7;
+          let kind = string_to_path_kind(kind_string, opt_bezier_from_pos, opt_bezier_to_pos, opt_bezier_control_point_1_x, opt_bezier_control_point_1_y, opt_bezier_control_point_2_x, opt_bezier_control_point_2_y, opt_step_mid_ratio);
           let $2 = split2(from3, " ");
           let $1 = split2(to, " ");
           if ($2 instanceof Empty) {

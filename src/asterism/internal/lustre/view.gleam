@@ -18,6 +18,8 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
+const scaling_from_graph_positions = 150
+
 pub fn view(model: Model) -> Element(Msg) {
   let transform = transform.init()
   let nodes =
@@ -59,16 +61,26 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn get_edge_element(
-  edge: graph_edge.Edge(String, #(option.Option(Nil), List(#(Int, Int)))),
+  edge: graph_edge.Edge(
+    String,
+    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
+  ),
 ) -> Element(Msg) {
   let handle1 = handle.Handle(edge.from, "link")
   let handle2 = handle.Handle(edge.to, "link")
-  clique.edge(
-    handle1,
-    handle2,
-    edge.bezier_from_positions([], position.Top, position.Bottom),
-    [],
+  let assert option.Some(#(_, #(control_point_1, control_point_2))) = edge.label
+  let #(c1x, c1y) = control_point_1
+  let #(c2x, c2y) = control_point_2
+
+  let c1 = #(
+    { c1x * scaling_from_graph_positions } |> int.to_float,
+    { c1y * scaling_from_graph_positions } |> int.to_float,
   )
+  let c2 = #(
+    { c2x * scaling_from_graph_positions } |> int.to_float,
+    { c2y * scaling_from_graph_positions } |> int.to_float,
+  )
+  clique.edge(handle1, handle2, edge.bezier_from_control_points([], c1, c2), [])
 }
 
 fn get_node_element(
@@ -76,8 +88,8 @@ fn get_node_element(
 ) -> Element(Msg) {
   let attributes = [
     node.position(
-      { node.value.2 * 150 } |> int.to_float,
-      { node.value.1 * 150 } |> int.to_float,
+      { node.value.2 * scaling_from_graph_positions } |> int.to_float,
+      { node.value.1 * scaling_from_graph_positions } |> int.to_float,
     ),
     attribute.class("bg-pink-50 rounded border-2 border-pink-500"),
   ]

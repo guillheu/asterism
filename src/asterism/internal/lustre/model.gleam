@@ -12,7 +12,7 @@ pub type Model {
     graph: graph.Graph(
       String,
       #(process_tree.Process, Int, Int),
-      #(option.Option(Nil), List(#(Int, Int))),
+      #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
   )
 }
