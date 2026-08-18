@@ -150,14 +150,12 @@ class BitArray {
     return true;
   }
   get buffer() {
-    bitArrayPrintDeprecationWarning("buffer", "Use BitArray.byteAt() or BitArray.rawBuffer instead");
     if (this.bitOffset !== 0 || this.bitSize % 8 !== 0) {
       throw new globalThis.Error("BitArray.buffer does not support unaligned bit arrays");
     }
     return this.rawBuffer;
   }
   get length() {
-    bitArrayPrintDeprecationWarning("length", "Use BitArray.bitSize or BitArray.byteSize instead");
     if (this.bitOffset !== 0 || this.bitSize % 8 !== 0) {
       throw new globalThis.Error("BitArray.length does not support unaligned bit arrays");
     }
@@ -178,14 +176,6 @@ class UtfCodepoint {
   constructor(value) {
     this.value = value;
   }
-}
-var isBitArrayDeprecationMessagePrinted = {};
-function bitArrayPrintDeprecationWarning(name, message) {
-  if (isBitArrayDeprecationMessagePrinted[name]) {
-    return;
-  }
-  console.warn(`Deprecated BitArray.${name} property used in JavaScript FFI code. ${message}.`);
-  isBitArrayDeprecationMessagePrinted[name] = true;
 }
 class Result extends CustomType {
   static isResult(data2) {
@@ -695,6 +685,22 @@ var Option$Some$0 = (value) => value[0];
 
 class None extends CustomType {
 }
+function from_result(result) {
+  if (result instanceof Ok) {
+    let a = result[0];
+    return new Some(a);
+  } else {
+    return new None;
+  }
+}
+function unwrap(option, default$) {
+  if (option instanceof Some) {
+    let x = option[0];
+    return x;
+  } else {
+    return default$;
+  }
+}
 function lazy_unwrap(option, default$) {
   if (option instanceof Some) {
     let x = option[0];
@@ -713,17 +719,17 @@ function map(option, fun) {
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/dict.mjs
+function keys(dict) {
+  return fold(dict, toList([]), (acc, key, _) => {
+    return prepend(key, acc);
+  });
+}
 function delete$(dict, key) {
   let _pipe = toTransient(dict);
   let _pipe$1 = ((_capture) => {
     return destructiveTransientDelete(key, _capture);
   })(_pipe);
   return fromTransient(_pipe$1);
-}
-function keys(dict) {
-  return fold(dict, toList([]), (acc, key, _) => {
-    return prepend(key, acc);
-  });
 }
 
 // build/dev/javascript/gleam_stdlib/gleam/order.mjs
@@ -738,6 +744,16 @@ class Gt extends CustomType {
 var Order$Gt = () => new Gt;
 
 // build/dev/javascript/gleam_stdlib/gleam/string.mjs
+function split2(x, substring) {
+  if (substring === "") {
+    return graphemes(x);
+  } else {
+    let _pipe = x;
+    let _pipe$1 = identity(_pipe);
+    let _pipe$2 = split(_pipe$1, substring);
+    return map3(_pipe$2, identity);
+  }
+}
 function concat_loop(loop$strings, loop$accumulator) {
   while (true) {
     let strings = loop$strings;
@@ -785,16 +801,6 @@ function trim(string) {
   let _pipe$1 = trim_start(_pipe);
   return trim_end(_pipe$1);
 }
-function split2(x, substring) {
-  if (substring === "") {
-    return graphemes(x);
-  } else {
-    let _pipe = x;
-    let _pipe$1 = identity(_pipe);
-    let _pipe$2 = split(_pipe$1, substring);
-    return map3(_pipe$2, identity);
-  }
-}
 
 // build/dev/javascript/gleam_stdlib/gleam/dynamic/decode.mjs
 class DecodeError extends CustomType {
@@ -812,113 +818,17 @@ class Decoder extends CustomType {
   }
 }
 var int2 = /* @__PURE__ */ new Decoder(decode_int);
-var float2 = /* @__PURE__ */ new Decoder(decode_float);
 var string2 = /* @__PURE__ */ new Decoder(decode_string);
+var float2 = /* @__PURE__ */ new Decoder(decode_float);
 function run(data2, decoder) {
   let $ = decoder.function(data2);
-  let maybe_invalid_data;
-  let errors;
-  maybe_invalid_data = $[0];
-  errors = $[1];
+  let maybe_invalid_data = $[0];
+  let errors = $[1];
   if (errors instanceof Empty) {
     return new Ok(maybe_invalid_data);
   } else {
     return new Error(errors);
   }
-}
-function success(data2) {
-  return new Decoder((_) => {
-    return [data2, toList([])];
-  });
-}
-function map4(decoder, transformer) {
-  return new Decoder((d) => {
-    let $ = decoder.function(d);
-    let data2;
-    let errors;
-    data2 = $[0];
-    errors = $[1];
-    return [transformer(data2), errors];
-  });
-}
-function then$(decoder, next) {
-  return new Decoder((dynamic_data) => {
-    let $ = decoder.function(dynamic_data);
-    let data2;
-    let errors;
-    data2 = $[0];
-    errors = $[1];
-    let decoder$1 = next(data2);
-    let $1 = decoder$1.function(dynamic_data);
-    let layer;
-    let data$1;
-    layer = $1;
-    data$1 = $1[0];
-    if (errors instanceof Empty) {
-      return layer;
-    } else {
-      return [data$1, errors];
-    }
-  });
-}
-function run_decoders(loop$data, loop$failure, loop$decoders) {
-  while (true) {
-    let data2 = loop$data;
-    let failure = loop$failure;
-    let decoders = loop$decoders;
-    if (decoders instanceof Empty) {
-      return failure;
-    } else {
-      let decoder = decoders.head;
-      let decoders$1 = decoders.tail;
-      let $ = decoder.function(data2);
-      let layer;
-      let errors;
-      layer = $;
-      errors = $[1];
-      if (errors instanceof Empty) {
-        return layer;
-      } else {
-        loop$data = data2;
-        loop$failure = failure;
-        loop$decoders = decoders$1;
-      }
-    }
-  }
-}
-function one_of(first, alternatives) {
-  return new Decoder((dynamic_data) => {
-    let $ = first.function(dynamic_data);
-    let layer;
-    let errors;
-    layer = $;
-    errors = $[1];
-    if (errors instanceof Empty) {
-      return layer;
-    } else {
-      return run_decoders(dynamic_data, layer, alternatives);
-    }
-  });
-}
-function optional(inner) {
-  return new Decoder((data2) => {
-    let $ = is_null(data2);
-    if ($) {
-      return [new None, toList([])];
-    } else {
-      let $1 = inner.function(data2);
-      let data$1;
-      let errors;
-      data$1 = $1[0];
-      errors = $1[1];
-      return [new Some(data$1), errors];
-    }
-  });
-}
-function decode_error(expected, found) {
-  return toList([
-    new DecodeError(expected, classify_dynamic(found), toList([]))
-  ]);
 }
 function run_dynamic_function(data2, name, f) {
   let $ = f(data2);
@@ -936,67 +846,49 @@ function run_dynamic_function(data2, name, f) {
 function decode_int(data2) {
   return run_dynamic_function(data2, "Int", int);
 }
-function decode_float(data2) {
-  return run_dynamic_function(data2, "Float", float);
-}
-function failure(placeholder, name) {
+function map4(decoder, transformer) {
   return new Decoder((d) => {
-    return [placeholder, decode_error(name, d)];
-  });
-}
-function new_primitive_decoder(name, decoding_function) {
-  return new Decoder((d) => {
-    let $ = decoding_function(d);
-    if ($ instanceof Ok) {
-      let t = $[0];
-      return [t, toList([])];
-    } else {
-      let placeholder = $[0];
-      return [
-        placeholder,
-        toList([new DecodeError(name, classify_dynamic(d), toList([]))])
-      ];
-    }
+    let $ = decoder.function(d);
+    let data2 = $[0];
+    let errors = $[1];
+    return [transformer(data2), errors];
   });
 }
 function decode_string(data2) {
   return run_dynamic_function(data2, "String", string);
 }
-function fold_dict(acc, key, value, key_decoder, value_decoder) {
-  let $ = key_decoder(key);
-  let $1 = $[1];
-  if ($1 instanceof Empty) {
-    let key$1 = $[0];
-    let $2 = value_decoder(value);
-    let $3 = $2[1];
-    if ($3 instanceof Empty) {
-      let value$1 = $2[0];
-      let dict$1 = insert(acc[0], key$1, value$1);
-      return [dict$1, acc[1]];
+function run_decoders(loop$data, loop$failure, loop$decoders) {
+  while (true) {
+    let data2 = loop$data;
+    let failure = loop$failure;
+    let decoders = loop$decoders;
+    if (decoders instanceof Empty) {
+      return failure;
     } else {
-      let errors = $3;
-      return push_path([make(), errors], toList(["values"]));
+      let decoder = decoders.head;
+      let decoders$1 = decoders.tail;
+      let $ = decoder.function(data2);
+      let layer = $;
+      let errors = $[1];
+      if (errors instanceof Empty) {
+        return layer;
+      } else {
+        loop$data = data2;
+        loop$failure = failure;
+        loop$decoders = decoders$1;
+      }
     }
-  } else {
-    let errors = $1;
-    return push_path([make(), errors], toList(["keys"]));
   }
 }
-function dict2(key, value) {
-  return new Decoder((data2) => {
-    let $ = dict(data2);
-    if ($ instanceof Ok) {
-      let dict$1 = $[0];
-      return fold(dict$1, [make(), toList([])], (a, k, v) => {
-        let $1 = a[1];
-        if ($1 instanceof Empty) {
-          return fold_dict(a, k, v, key.function, value.function);
-        } else {
-          return a;
-        }
-      });
+function one_of(first, alternatives) {
+  return new Decoder((dynamic_data) => {
+    let $ = first.function(dynamic_data);
+    let layer = $;
+    let errors = $[1];
+    if (errors instanceof Empty) {
+      return layer;
     } else {
-      return [make(), decode_error("Dict", data2)];
+      return run_decoders(dynamic_data, layer, alternatives);
     }
   });
 }
@@ -1052,8 +944,7 @@ function index3(loop$path, loop$position, loop$inner, loop$data, loop$handle_mis
       } else {
         let kind = $[0];
         let $1 = inner(data2);
-        let default$;
-        default$ = $1[0];
+        let default$ = $1[0];
         let _pipe = [
           default$,
           toList([new DecodeError(kind, classify_dynamic(data2), toList([]))])
@@ -1067,28 +958,123 @@ function subfield(field_path, field_decoder, next) {
   return new Decoder((data2) => {
     let $ = index3(field_path, toList([]), field_decoder.function, data2, (data3, position) => {
       let $12 = field_decoder.function(data3);
-      let default$;
-      default$ = $12[0];
+      let default$ = $12[0];
       let _pipe = [
         default$,
         toList([new DecodeError("Field", "Nothing", toList([]))])
       ];
       return push_path(_pipe, reverse(position));
     });
-    let out;
-    let errors1;
-    out = $[0];
-    errors1 = $[1];
+    let out = $[0];
+    let errors1 = $[1];
     let $1 = next(out).function(data2);
-    let out$1;
-    let errors2;
-    out$1 = $1[0];
-    errors2 = $1[1];
+    let out$1 = $1[0];
+    let errors2 = $1[1];
     return [out$1, append2(errors1, errors2)];
   });
 }
+function success(data2) {
+  return new Decoder((_) => {
+    return [data2, toList([])];
+  });
+}
+function decode_error(expected, found) {
+  return toList([
+    new DecodeError(expected, classify_dynamic(found), toList([]))
+  ]);
+}
 function field(field_name, field_decoder, next) {
   return subfield(toList([field_name]), field_decoder, next);
+}
+function decode_float(data2) {
+  return run_dynamic_function(data2, "Float", float);
+}
+function fold_dict(acc, key, value, key_decoder, value_decoder) {
+  let $ = key_decoder(key);
+  let $1 = $[1];
+  if ($1 instanceof Empty) {
+    let key$1 = $[0];
+    let $2 = value_decoder(value);
+    let $3 = $2[1];
+    if ($3 instanceof Empty) {
+      let value$1 = $2[0];
+      let dict$1 = insert(acc[0], key$1, value$1);
+      return [dict$1, acc[1]];
+    } else {
+      let errors = $3;
+      return push_path([make(), errors], toList(["values"]));
+    }
+  } else {
+    let errors = $1;
+    return push_path([make(), errors], toList(["keys"]));
+  }
+}
+function dict2(key, value) {
+  return new Decoder((data2) => {
+    let $ = dict(data2);
+    if ($ instanceof Ok) {
+      let dict$1 = $[0];
+      return fold(dict$1, [make(), toList([])], (a, k, v) => {
+        let $1 = a[1];
+        if ($1 instanceof Empty) {
+          return fold_dict(a, k, v, key.function, value.function);
+        } else {
+          return a;
+        }
+      });
+    } else {
+      return [make(), decode_error("Dict", data2)];
+    }
+  });
+}
+function optional(inner) {
+  return new Decoder((data2) => {
+    let $ = is_null(data2);
+    if ($) {
+      return [new None, toList([])];
+    } else {
+      let $1 = inner.function(data2);
+      let data$1 = $1[0];
+      let errors = $1[1];
+      return [new Some(data$1), errors];
+    }
+  });
+}
+function then$(decoder, next) {
+  return new Decoder((dynamic_data) => {
+    let $ = decoder.function(dynamic_data);
+    let data2 = $[0];
+    let errors = $[1];
+    let decoder$1 = next(data2);
+    let $1 = decoder$1.function(dynamic_data);
+    let layer = $1;
+    let data$1 = $1[0];
+    if (errors instanceof Empty) {
+      return layer;
+    } else {
+      return [data$1, errors];
+    }
+  });
+}
+function failure(placeholder, name) {
+  return new Decoder((d) => {
+    return [placeholder, decode_error(name, d)];
+  });
+}
+function new_primitive_decoder(name, decoding_function) {
+  return new Decoder((d) => {
+    let $ = decoding_function(d);
+    if ($ instanceof Ok) {
+      let t = $[0];
+      return [t, toList([])];
+    } else {
+      let placeholder = $[0];
+      return [
+        placeholder,
+        toList([new DecodeError(name, classify_dynamic(d), toList([]))])
+      ];
+    }
+  });
 }
 
 // build/dev/javascript/gleam_stdlib/gleam_stdlib.mjs
@@ -1620,6 +1606,160 @@ function fold2(loop$list, loop$initial, loop$fun) {
     }
   }
 }
+function merge_descendings(loop$list1, loop$list2, loop$compare, loop$acc) {
+  while (true) {
+    let list1 = loop$list1;
+    let list2 = loop$list2;
+    let compare3 = loop$compare;
+    let acc = loop$acc;
+    if (list1 instanceof Empty) {
+      let list3 = list2;
+      return reverse_and_prepend(list3, acc);
+    } else if (list2 instanceof Empty) {
+      let list3 = list1;
+      return reverse_and_prepend(list3, acc);
+    } else {
+      let first1 = list1.head;
+      let rest1 = list1.tail;
+      let first2 = list2.head;
+      let rest2 = list2.tail;
+      let $ = compare3(first1, first2);
+      if ($ instanceof Lt) {
+        loop$list1 = list1;
+        loop$list2 = rest2;
+        loop$compare = compare3;
+        loop$acc = prepend(first2, acc);
+      } else if ($ instanceof Eq) {
+        loop$list1 = rest1;
+        loop$list2 = list2;
+        loop$compare = compare3;
+        loop$acc = prepend(first1, acc);
+      } else {
+        loop$list1 = rest1;
+        loop$list2 = list2;
+        loop$compare = compare3;
+        loop$acc = prepend(first1, acc);
+      }
+    }
+  }
+}
+function merge_descending_pairs(loop$sequences, loop$compare, loop$acc) {
+  while (true) {
+    let sequences = loop$sequences;
+    let compare3 = loop$compare;
+    let acc = loop$acc;
+    if (sequences instanceof Empty) {
+      return reverse(acc);
+    } else {
+      let $ = sequences.tail;
+      if ($ instanceof Empty) {
+        let sequence = sequences.head;
+        return reverse(prepend(reverse(sequence), acc));
+      } else {
+        let descending1 = sequences.head;
+        let descending2 = $.head;
+        let rest$1 = $.tail;
+        let ascending = merge_descendings(descending1, descending2, compare3, toList([]));
+        loop$sequences = rest$1;
+        loop$compare = compare3;
+        loop$acc = prepend(ascending, acc);
+      }
+    }
+  }
+}
+function merge_ascendings(loop$list1, loop$list2, loop$compare, loop$acc) {
+  while (true) {
+    let list1 = loop$list1;
+    let list2 = loop$list2;
+    let compare3 = loop$compare;
+    let acc = loop$acc;
+    if (list1 instanceof Empty) {
+      let list3 = list2;
+      return reverse_and_prepend(list3, acc);
+    } else if (list2 instanceof Empty) {
+      let list3 = list1;
+      return reverse_and_prepend(list3, acc);
+    } else {
+      let first1 = list1.head;
+      let rest1 = list1.tail;
+      let first2 = list2.head;
+      let rest2 = list2.tail;
+      let $ = compare3(first1, first2);
+      if ($ instanceof Lt) {
+        loop$list1 = rest1;
+        loop$list2 = list2;
+        loop$compare = compare3;
+        loop$acc = prepend(first1, acc);
+      } else if ($ instanceof Eq) {
+        loop$list1 = list1;
+        loop$list2 = rest2;
+        loop$compare = compare3;
+        loop$acc = prepend(first2, acc);
+      } else {
+        loop$list1 = list1;
+        loop$list2 = rest2;
+        loop$compare = compare3;
+        loop$acc = prepend(first2, acc);
+      }
+    }
+  }
+}
+function merge_ascending_pairs(loop$sequences, loop$compare, loop$acc) {
+  while (true) {
+    let sequences = loop$sequences;
+    let compare3 = loop$compare;
+    let acc = loop$acc;
+    if (sequences instanceof Empty) {
+      return reverse(acc);
+    } else {
+      let $ = sequences.tail;
+      if ($ instanceof Empty) {
+        let sequence = sequences.head;
+        return reverse(prepend(reverse(sequence), acc));
+      } else {
+        let ascending1 = sequences.head;
+        let ascending2 = $.head;
+        let rest$1 = $.tail;
+        let descending = merge_ascendings(ascending1, ascending2, compare3, toList([]));
+        loop$sequences = rest$1;
+        loop$compare = compare3;
+        loop$acc = prepend(descending, acc);
+      }
+    }
+  }
+}
+function merge_all(loop$sequences, loop$direction, loop$compare) {
+  while (true) {
+    let sequences = loop$sequences;
+    let direction = loop$direction;
+    let compare3 = loop$compare;
+    if (sequences instanceof Empty) {
+      return sequences;
+    } else if (direction instanceof Ascending) {
+      let $ = sequences.tail;
+      if ($ instanceof Empty) {
+        let sequence = sequences.head;
+        return sequence;
+      } else {
+        let sequences$1 = merge_ascending_pairs(sequences, compare3, toList([]));
+        loop$sequences = sequences$1;
+        loop$direction = new Descending;
+        loop$compare = compare3;
+      }
+    } else {
+      let $ = sequences.tail;
+      if ($ instanceof Empty) {
+        let sequence = sequences.head;
+        return reverse(sequence);
+      } else {
+        let sequences$1 = merge_descending_pairs(sequences, compare3, toList([]));
+        loop$sequences = sequences$1;
+        loop$direction = new Ascending;
+        loop$compare = compare3;
+      }
+    }
+  }
+}
 function sequences(loop$list, loop$compare, loop$growing, loop$direction, loop$prev, loop$acc) {
   while (true) {
     let list2 = loop$list;
@@ -1756,160 +1896,6 @@ function sequences(loop$list, loop$compare, loop$growing, loop$direction, loop$p
     }
   }
 }
-function merge_ascendings(loop$list1, loop$list2, loop$compare, loop$acc) {
-  while (true) {
-    let list1 = loop$list1;
-    let list2 = loop$list2;
-    let compare3 = loop$compare;
-    let acc = loop$acc;
-    if (list1 instanceof Empty) {
-      let list3 = list2;
-      return reverse_and_prepend(list3, acc);
-    } else if (list2 instanceof Empty) {
-      let list3 = list1;
-      return reverse_and_prepend(list3, acc);
-    } else {
-      let first1 = list1.head;
-      let rest1 = list1.tail;
-      let first2 = list2.head;
-      let rest2 = list2.tail;
-      let $ = compare3(first1, first2);
-      if ($ instanceof Lt) {
-        loop$list1 = rest1;
-        loop$list2 = list2;
-        loop$compare = compare3;
-        loop$acc = prepend(first1, acc);
-      } else if ($ instanceof Eq) {
-        loop$list1 = list1;
-        loop$list2 = rest2;
-        loop$compare = compare3;
-        loop$acc = prepend(first2, acc);
-      } else {
-        loop$list1 = list1;
-        loop$list2 = rest2;
-        loop$compare = compare3;
-        loop$acc = prepend(first2, acc);
-      }
-    }
-  }
-}
-function merge_ascending_pairs(loop$sequences, loop$compare, loop$acc) {
-  while (true) {
-    let sequences2 = loop$sequences;
-    let compare3 = loop$compare;
-    let acc = loop$acc;
-    if (sequences2 instanceof Empty) {
-      return reverse(acc);
-    } else {
-      let $ = sequences2.tail;
-      if ($ instanceof Empty) {
-        let sequence = sequences2.head;
-        return reverse(prepend(reverse(sequence), acc));
-      } else {
-        let ascending1 = sequences2.head;
-        let ascending2 = $.head;
-        let rest$1 = $.tail;
-        let descending = merge_ascendings(ascending1, ascending2, compare3, toList([]));
-        loop$sequences = rest$1;
-        loop$compare = compare3;
-        loop$acc = prepend(descending, acc);
-      }
-    }
-  }
-}
-function merge_descendings(loop$list1, loop$list2, loop$compare, loop$acc) {
-  while (true) {
-    let list1 = loop$list1;
-    let list2 = loop$list2;
-    let compare3 = loop$compare;
-    let acc = loop$acc;
-    if (list1 instanceof Empty) {
-      let list3 = list2;
-      return reverse_and_prepend(list3, acc);
-    } else if (list2 instanceof Empty) {
-      let list3 = list1;
-      return reverse_and_prepend(list3, acc);
-    } else {
-      let first1 = list1.head;
-      let rest1 = list1.tail;
-      let first2 = list2.head;
-      let rest2 = list2.tail;
-      let $ = compare3(first1, first2);
-      if ($ instanceof Lt) {
-        loop$list1 = list1;
-        loop$list2 = rest2;
-        loop$compare = compare3;
-        loop$acc = prepend(first2, acc);
-      } else if ($ instanceof Eq) {
-        loop$list1 = rest1;
-        loop$list2 = list2;
-        loop$compare = compare3;
-        loop$acc = prepend(first1, acc);
-      } else {
-        loop$list1 = rest1;
-        loop$list2 = list2;
-        loop$compare = compare3;
-        loop$acc = prepend(first1, acc);
-      }
-    }
-  }
-}
-function merge_descending_pairs(loop$sequences, loop$compare, loop$acc) {
-  while (true) {
-    let sequences2 = loop$sequences;
-    let compare3 = loop$compare;
-    let acc = loop$acc;
-    if (sequences2 instanceof Empty) {
-      return reverse(acc);
-    } else {
-      let $ = sequences2.tail;
-      if ($ instanceof Empty) {
-        let sequence = sequences2.head;
-        return reverse(prepend(reverse(sequence), acc));
-      } else {
-        let descending1 = sequences2.head;
-        let descending2 = $.head;
-        let rest$1 = $.tail;
-        let ascending = merge_descendings(descending1, descending2, compare3, toList([]));
-        loop$sequences = rest$1;
-        loop$compare = compare3;
-        loop$acc = prepend(ascending, acc);
-      }
-    }
-  }
-}
-function merge_all(loop$sequences, loop$direction, loop$compare) {
-  while (true) {
-    let sequences2 = loop$sequences;
-    let direction = loop$direction;
-    let compare3 = loop$compare;
-    if (sequences2 instanceof Empty) {
-      return sequences2;
-    } else if (direction instanceof Ascending) {
-      let $ = sequences2.tail;
-      if ($ instanceof Empty) {
-        let sequence = sequences2.head;
-        return sequence;
-      } else {
-        let sequences$1 = merge_ascending_pairs(sequences2, compare3, toList([]));
-        loop$sequences = sequences$1;
-        loop$direction = new Descending;
-        loop$compare = compare3;
-      }
-    } else {
-      let $ = sequences2.tail;
-      if ($ instanceof Empty) {
-        let sequence = sequences2.head;
-        return reverse(sequence);
-      } else {
-        let sequences$1 = merge_descending_pairs(sequences2, compare3, toList([]));
-        loop$sequences = sequences$1;
-        loop$direction = new Ascending;
-        loop$compare = compare3;
-      }
-    }
-  }
-}
 function sort(list2, compare3) {
   if (list2 instanceof Empty) {
     return list2;
@@ -1968,7 +1954,7 @@ function try$(result, fun) {
     return result;
   }
 }
-function unwrap(result, default$) {
+function unwrap2(result, default$) {
   if (result instanceof Ok) {
     let v = result[0];
     return v;
@@ -2145,6 +2131,12 @@ var possible_kind = 1;
 var possible = /* @__PURE__ */ new Possible(possible_kind);
 var always_kind = 2;
 var always = /* @__PURE__ */ new Always(always_kind);
+function attribute(name, value) {
+  return new Attribute(attribute_kind, name, value);
+}
+function event(name, handler, include, prevent_default, stop_propagation, debounce, throttle) {
+  return new Event2(event_kind, name, handler, include, prevent_default, stop_propagation, debounce, throttle);
+}
 function merge(loop$attributes, loop$merged) {
   while (true) {
     let attributes = loop$attributes;
@@ -2270,12 +2262,6 @@ function prepare(attributes) {
     }
   }
 }
-function attribute(name, value) {
-  return new Attribute(attribute_kind, name, value);
-}
-function event(name, handler, include, prevent_default, stop_propagation, debounce, throttle) {
-  return new Event2(event_kind, name, handler, include, prevent_default, stop_propagation, debounce, throttle);
-}
 
 // build/dev/javascript/lustre/lustre/attribute.mjs
 function attribute2(name, value) {
@@ -2350,12 +2336,6 @@ class Actions extends CustomType {
   }
 }
 var empty = /* @__PURE__ */ new Effect(/* @__PURE__ */ toList([]), /* @__PURE__ */ toList([]), /* @__PURE__ */ toList([]));
-function perform(effect, dispatch, emit, select, root, provide) {
-  let actions = new Actions(dispatch, emit, select, root, provide);
-  return each(effect.synchronous, (run2) => {
-    return run2(actions);
-  });
-}
 function none() {
   return empty;
 }
@@ -2397,6 +2377,12 @@ function provide(key, value) {
 function batch(effects) {
   return fold2(effects, empty, (acc, eff) => {
     return new Effect(fold2(eff.synchronous, acc.synchronous, prepend2), fold2(eff.before_paint, acc.before_paint, prepend2), fold2(eff.after_paint, acc.after_paint, prepend2));
+  });
+}
+function perform(effect, dispatch, emit, select, root, provide2) {
+  let actions = new Actions(dispatch, emit, select, root, provide2);
+  return each(effect.synchronous, (run2) => {
+    return run2(actions);
   });
 }
 
@@ -2527,6 +2513,12 @@ var text_kind = 2;
 var unsafe_inner_html_kind = 3;
 var map_kind = 4;
 var memo_kind = 5;
+function fragment(key, children, keyed_children) {
+  return new Fragment(fragment_kind, key, children, keyed_children);
+}
+function element(key, namespace, tag, attributes, children, keyed_children, self_closing, void$) {
+  return new Element(element_kind, key, namespace, tag, prepare(attributes), children, keyed_children, self_closing, void$);
+}
 function is_void_html_element(tag, namespace) {
   if (namespace === "") {
     if (tag === "area") {
@@ -2564,31 +2556,6 @@ function is_void_html_element(tag, namespace) {
     return false;
   }
 }
-function to_keyed(key, node) {
-  if (node instanceof Fragment) {
-    return new Fragment(node.kind, key, node.children, node.keyed_children);
-  } else if (node instanceof Element) {
-    return new Element(node.kind, key, node.namespace, node.tag, node.attributes, node.children, node.keyed_children, node.self_closing, node.void);
-  } else if (node instanceof Text) {
-    return new Text(node.kind, key, node.content);
-  } else if (node instanceof UnsafeInnerHtml) {
-    return new UnsafeInnerHtml(node.kind, key, node.namespace, node.tag, node.attributes, node.inner_html);
-  } else if (node instanceof Map2) {
-    let child = node.child;
-    return new Map2(node.kind, key, node.mapper, to_keyed(key, child));
-  } else {
-    let view = node.view;
-    return new Memo(node.kind, key, node.dependencies, () => {
-      return to_keyed(key, view());
-    });
-  }
-}
-function fragment(key, children, keyed_children) {
-  return new Fragment(fragment_kind, key, children, keyed_children);
-}
-function element(key, namespace, tag, attributes, children, keyed_children, self_closing, void$) {
-  return new Element(element_kind, key, namespace, tag, prepare(attributes), children, keyed_children, self_closing, void$);
-}
 function text(key, content) {
   return new Text(text_kind, key, content);
 }
@@ -2607,6 +2574,25 @@ function map5(element2, mapper) {
 }
 function memo(key, dependencies, view) {
   return new Memo(memo_kind, key, dependencies, view);
+}
+function to_keyed(key, node) {
+  if (node instanceof Fragment) {
+    return new Fragment(node.kind, key, node.children, node.keyed_children);
+  } else if (node instanceof Element) {
+    return new Element(node.kind, key, node.namespace, node.tag, node.attributes, node.children, node.keyed_children, node.self_closing, node.void);
+  } else if (node instanceof Text) {
+    return new Text(node.kind, key, node.content);
+  } else if (node instanceof UnsafeInnerHtml) {
+    return new UnsafeInnerHtml(node.kind, key, node.namespace, node.tag, node.attributes, node.inner_html);
+  } else if (node instanceof Map2) {
+    let child = node.child;
+    return new Map2(node.kind, key, node.mapper, to_keyed(key, child));
+  } else {
+    let view = node.view;
+    return new Memo(node.kind, key, node.dependencies, () => {
+      return to_keyed(key, view());
+    });
+  }
 }
 
 // build/dev/javascript/lustre/lustre/element.mjs
@@ -2669,6 +2655,9 @@ function new$2() {
 function size3(set) {
   return size(set.dict);
 }
+function insert3(set, member) {
+  return new Set2(insert(set.dict, member, token));
+}
 function contains2(set, member) {
   let _pipe = set.dict;
   let _pipe$1 = get(_pipe, member);
@@ -2677,19 +2666,16 @@ function contains2(set, member) {
 function delete$2(set, member) {
   return new Set2(delete$(set.dict, member));
 }
-function fold3(set, initial, reducer) {
-  return fold(set.dict, initial, (a, k, _) => {
-    return reducer(a, k);
-  });
-}
-function insert3(set, member) {
-  return new Set2(insert(set.dict, member, token));
-}
 function from_list2(members) {
   let dict3 = fold2(members, make(), (m, k) => {
     return insert(m, k, token);
   });
   return new Set2(dict3);
+}
+function fold3(set, initial, reducer) {
+  return fold(set.dict, initial, (a, k, _) => {
+    return reducer(a, k);
+  });
 }
 
 // build/dev/javascript/lustre/lustre/vdom/patch.mjs
@@ -2914,40 +2900,11 @@ class Subtree extends CustomType {
     this.parent = parent;
   }
 }
-var root = /* @__PURE__ */ new Root;
-var separator_element = "\t";
 var separator_subtree = "\r";
+var separator_element = "\t";
 var separator_event = `
 `;
-function do_matches(loop$path, loop$candidates) {
-  while (true) {
-    let path = loop$path;
-    let candidates = loop$candidates;
-    if (candidates instanceof Empty) {
-      return false;
-    } else {
-      let candidate = candidates.head;
-      let rest = candidates.tail;
-      let $ = starts_with(path, candidate);
-      if ($) {
-        return $;
-      } else {
-        loop$path = path;
-        loop$candidates = rest;
-      }
-    }
-  }
-}
-function add2(parent, index4, key) {
-  if (key === "") {
-    return new Index(index4, parent);
-  } else {
-    return new Key(key, parent);
-  }
-}
-function subtree(path) {
-  return new Subtree(path);
-}
+var root = /* @__PURE__ */ new Root;
 function finish_to_string(acc) {
   if (acc instanceof Empty) {
     return "";
@@ -2955,9 +2912,6 @@ function finish_to_string(acc) {
     let segments = acc.tail;
     return concat2(segments);
   }
-}
-function split_subtree_path(path) {
-  return split2(path, separator_subtree);
 }
 function do_to_string(loop$full, loop$path, loop$acc) {
   while (true) {
@@ -2996,11 +2950,27 @@ function do_to_string(loop$full, loop$path, loop$acc) {
     }
   }
 }
-function child(path) {
-  return do_to_string(false, path, empty_list);
-}
 function to_string3(path) {
   return do_to_string(true, path, empty_list);
+}
+function do_matches(loop$path, loop$candidates) {
+  while (true) {
+    let path = loop$path;
+    let candidates = loop$candidates;
+    if (candidates instanceof Empty) {
+      return false;
+    } else {
+      let candidate = candidates.head;
+      let rest = candidates.tail;
+      let $ = starts_with(path, candidate);
+      if ($) {
+        return $;
+      } else {
+        loop$path = path;
+        loop$candidates = rest;
+      }
+    }
+  }
 }
 function matches(path, candidates) {
   if (candidates instanceof Empty) {
@@ -3009,8 +2979,24 @@ function matches(path, candidates) {
     return do_matches(to_string3(path), candidates);
   }
 }
+function split_subtree_path(path) {
+  return split2(path, separator_subtree);
+}
+function add2(parent, index4, key) {
+  if (key === "") {
+    return new Index(index4, parent);
+  } else {
+    return new Key(key, parent);
+  }
+}
+function subtree(path) {
+  return new Subtree(path);
+}
 function event3(path, event4) {
   return do_to_string(false, path, prepend(separator_event, prepend(event4, empty_list)));
+}
+function child(path) {
+  return do_to_string(false, path, empty_list);
 }
 
 // build/dev/javascript/lustre/lustre/vdom/cache.mjs
@@ -3075,63 +3061,17 @@ function new_events() {
 function new$5() {
   return new Cache(new_events(), empty2(), empty2(), empty_list, empty_list);
 }
-function tick(cache) {
-  return new Cache(cache.events, empty2(), cache.vdoms, cache.next_dispatched_paths, empty_list);
-}
-function events(cache) {
-  return cache.events;
-}
-function update_events(cache, events2) {
-  return new Cache(events2, cache.vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
-}
-function memos(cache) {
-  return cache.vdoms;
-}
-function get_old_memo(cache, old, new$6) {
-  return get_or_compute(cache.old_vdoms, old, new$6);
-}
-function keep_memo(cache, old, new$6) {
-  let node = get_or_compute(cache.old_vdoms, old, new$6);
-  let vdoms = insert2(cache.vdoms, new$6, node);
-  return new Cache(cache.events, vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
-}
-function add_memo(cache, new$6, node) {
-  let vdoms = insert2(cache.vdoms, new$6, node);
-  return new Cache(cache.events, vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
-}
-function get_subtree(events2, path, old_mapper) {
-  let child2 = get_or_compute(events2.children, path, () => {
-    return new Child(old_mapper, new_events());
-  });
-  return child2.events;
-}
-function update_subtree(parent, path, mapper, events2) {
-  let new_child = new Child(mapper, events2);
-  let children = insert2(parent.children, path, new_child);
-  return new Events(parent.handlers, children);
-}
 function do_add_event(handlers, path, name, handler) {
   return insert2(handlers, event3(path, name), handler);
 }
-function add_event(events2, path, name, handler) {
-  let handlers = do_add_event(events2.handlers, path, name, handler);
-  return new Events(handlers, events2.children);
-}
-function do_remove_event(handlers, path, name) {
-  return remove(handlers, event3(path, name));
-}
-function remove_event(events2, path, name) {
-  let handlers = do_remove_event(events2.handlers, path, name);
-  return new Events(handlers, events2.children);
-}
 function add_attributes(handlers, path, attributes) {
-  return fold2(attributes, handlers, (events2, attribute3) => {
+  return fold2(attributes, handlers, (events, attribute3) => {
     if (attribute3 instanceof Event2) {
       let name = attribute3.name;
       let handler = attribute3.handler;
-      return do_add_event(events2, path, name, handler);
+      return do_add_event(events, path, name, handler);
     } else {
-      return events2;
+      return events;
     }
   });
 }
@@ -3154,12 +3094,9 @@ function do_add_children(loop$handlers, loop$children, loop$vdoms, loop$parent, 
         let nodes$1 = $.children;
         let path = add2(parent, child_index, key);
         let $1 = do_add_children(handlers, children, vdoms, path, 0, nodes$1);
-        let handlers$1;
-        let children$1;
-        let vdoms$1;
-        handlers$1 = $1.handlers;
-        children$1 = $1.children;
-        vdoms$1 = $1.vdoms;
+        let handlers$1 = $1.handlers;
+        let children$1 = $1.children;
+        let vdoms$1 = $1.vdoms;
         loop$handlers = handlers$1;
         loop$children = children$1;
         loop$vdoms = vdoms$1;
@@ -3174,12 +3111,9 @@ function do_add_children(loop$handlers, loop$children, loop$vdoms, loop$parent, 
         let path = add2(parent, child_index, key);
         let handlers$1 = add_attributes(handlers, path, attributes);
         let $1 = do_add_children(handlers$1, children, vdoms, path, 0, nodes$1);
-        let handlers$2;
-        let children$1;
-        let vdoms$1;
-        handlers$2 = $1.handlers;
-        children$1 = $1.children;
-        vdoms$1 = $1.vdoms;
+        let handlers$2 = $1.handlers;
+        let children$1 = $1.children;
+        let vdoms$1 = $1.vdoms;
         loop$handlers = handlers$2;
         loop$children = children$1;
         loop$vdoms = vdoms$1;
@@ -3240,36 +3174,75 @@ function do_add_children(loop$handlers, loop$children, loop$vdoms, loop$parent, 
     }
   }
 }
-function add_children(cache, events2, path, child_index, nodes) {
+function add_children(cache, events, path, child_index, nodes) {
   let vdoms = cache.vdoms;
-  let handlers;
-  let children;
-  handlers = events2.handlers;
-  children = events2.children;
+  let handlers = events.handlers;
+  let children = events.children;
   let $ = do_add_children(handlers, children, vdoms, path, child_index, nodes);
-  let handlers$1;
-  let children$1;
-  let vdoms$1;
-  handlers$1 = $.handlers;
-  children$1 = $.children;
-  vdoms$1 = $.vdoms;
+  let handlers$1 = $.handlers;
+  let children$1 = $.children;
+  let vdoms$1 = $.vdoms;
   return [
     new Cache(cache.events, vdoms$1, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths),
     new Events(handlers$1, children$1)
   ];
 }
-function add_child(cache, events2, parent, index4, child2) {
+function add_child(cache, events, parent, index4, child2) {
   let children = prepend(child2, empty_list);
-  return add_children(cache, events2, parent, index4, children);
+  return add_children(cache, events, parent, index4, children);
 }
 function from_node(root2) {
   let cache = new$5();
   let $ = add_child(cache, cache.events, root, 0, root2);
-  let cache$1;
-  let events$1;
-  cache$1 = $[0];
-  events$1 = $[1];
+  let cache$1 = $[0];
+  let events$1 = $[1];
   return new Cache(events$1, cache$1.vdoms, cache$1.old_vdoms, cache$1.dispatched_paths, cache$1.next_dispatched_paths);
+}
+function tick(cache) {
+  return new Cache(cache.events, empty2(), cache.vdoms, cache.next_dispatched_paths, empty_list);
+}
+function events(cache) {
+  return cache.events;
+}
+function update_events(cache, events2) {
+  return new Cache(events2, cache.vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
+}
+function memos(cache) {
+  return cache.vdoms;
+}
+function get_old_memo(cache, old, new$6) {
+  return get_or_compute(cache.old_vdoms, old, new$6);
+}
+function keep_memo(cache, old, new$6) {
+  let node = get_or_compute(cache.old_vdoms, old, new$6);
+  let vdoms = insert2(cache.vdoms, new$6, node);
+  return new Cache(cache.events, vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
+}
+function add_memo(cache, new$6, node) {
+  let vdoms = insert2(cache.vdoms, new$6, node);
+  return new Cache(cache.events, vdoms, cache.old_vdoms, cache.dispatched_paths, cache.next_dispatched_paths);
+}
+function get_subtree(events2, path, old_mapper) {
+  let child2 = get_or_compute(events2.children, path, () => {
+    return new Child(old_mapper, new_events());
+  });
+  return child2.events;
+}
+function update_subtree(parent, path, mapper, events2) {
+  let new_child = new Child(mapper, events2);
+  let children = insert2(parent.children, path, new_child);
+  return new Events(parent.handlers, children);
+}
+function add_event(events2, path, name, handler) {
+  let handlers = do_add_event(events2.handlers, path, name, handler);
+  return new Events(handlers, events2.children);
+}
+function do_remove_event(handlers, path, name) {
+  return remove(handlers, event3(path, name));
+}
+function remove_event(events2, path, name) {
+  let handlers = do_remove_event(events2.handlers, path, name);
+  return new Events(handlers, events2.children);
 }
 function remove_attributes(handlers, path, attributes) {
   return fold2(attributes, handlers, (events2, attribute3) => {
@@ -3300,10 +3273,8 @@ function do_remove_children(loop$handlers, loop$children, loop$vdoms, loop$paren
         let nodes$1 = $.children;
         let path = add2(parent, index4, key);
         let $1 = do_remove_children(handlers, children, vdoms, path, 0, nodes$1);
-        let handlers$1;
-        let children$1;
-        handlers$1 = $1.handlers;
-        children$1 = $1.children;
+        let handlers$1 = $1.handlers;
+        let children$1 = $1.children;
         loop$handlers = handlers$1;
         loop$children = children$1;
         loop$vdoms = vdoms;
@@ -3318,10 +3289,8 @@ function do_remove_children(loop$handlers, loop$children, loop$vdoms, loop$paren
         let path = add2(parent, index4, key);
         let handlers$1 = remove_attributes(handlers, path, attributes);
         let $1 = do_remove_children(handlers$1, children, vdoms, path, 0, nodes$1);
-        let handlers$2;
-        let children$1;
-        handlers$2 = $1.handlers;
-        children$1 = $1.children;
+        let handlers$2 = $1.handlers;
+        let children$1 = $1.children;
         loop$handlers = handlers$2;
         loop$children = children$1;
         loop$vdoms = vdoms;
@@ -3391,19 +3360,6 @@ function replace_child(cache, events2, parent, child_index, prev, next) {
   let events$1 = remove_child(cache, events2, parent, child_index, prev);
   return add_child(cache, events$1, parent, child_index, next);
 }
-function dispatch(cache, event4) {
-  let next_dispatched_paths = prepend(event4.path, cache.next_dispatched_paths);
-  let cache$1 = new Cache(cache.events, cache.vdoms, cache.old_vdoms, cache.dispatched_paths, next_dispatched_paths);
-  if (event4 instanceof DecodedEvent) {
-    let handler = event4.handler;
-    return [cache$1, new Ok(handler)];
-  } else {
-    return [cache$1, error_nil];
-  }
-}
-function has_dispatched_events(cache, path) {
-  return matches(path, cache.dispatched_paths);
-}
 function get_handler(loop$events, loop$path, loop$mapper) {
   while (true) {
     let events2 = loop$events;
@@ -3457,11 +3413,24 @@ function decode2(cache, path, name, event4) {
     return new DispatchedEvent(path);
   }
 }
+function dispatch(cache, event4) {
+  let next_dispatched_paths = prepend(event4.path, cache.next_dispatched_paths);
+  let cache$1 = new Cache(cache.events, cache.vdoms, cache.old_vdoms, cache.dispatched_paths, next_dispatched_paths);
+  if (event4 instanceof DecodedEvent) {
+    let handler = event4.handler;
+    return [cache$1, new Ok(handler)];
+  } else {
+    return [cache$1, error_nil];
+  }
+}
 function handle(cache, path, name, event4) {
   let _pipe = decode2(cache, path, name, event4);
   return ((_capture) => {
     return dispatch(cache, _capture);
   })(_pipe);
+}
+function has_dispatched_events(cache, path) {
+  return matches(path, cache.dispatched_paths);
 }
 
 // build/dev/javascript/lustre/lustre/runtime/server/runtime.mjs
@@ -3635,17 +3604,6 @@ class AttributeChange extends CustomType {
     this.added = added;
     this.removed = removed;
     this.events = events2;
-  }
-}
-function is_controlled(cache, namespace, tag, path) {
-  if (tag === "input" && namespace === "") {
-    return has_dispatched_events(cache, path);
-  } else if (tag === "select" && namespace === "") {
-    return has_dispatched_events(cache, path);
-  } else if (tag === "textarea" && namespace === "") {
-    return has_dispatched_events(cache, path);
-  } else {
-    return false;
   }
 }
 function diff_attributes(loop$controlled, loop$path, loop$events, loop$old, loop$new, loop$added, loop$removed) {
@@ -3890,6 +3848,17 @@ function diff_attributes(loop$controlled, loop$path, loop$events, loop$old, loop
     }
   }
 }
+function is_controlled(cache, namespace, tag, path) {
+  if (tag === "input" && namespace === "") {
+    return has_dispatched_events(cache, path);
+  } else if (tag === "select" && namespace === "") {
+    return has_dispatched_events(cache, path);
+  } else if (tag === "textarea" && namespace === "") {
+    return has_dispatched_events(cache, path);
+  } else {
+    return false;
+  }
+}
 function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved, loop$moved_offset, loop$removed, loop$node_index, loop$patch_index, loop$changes, loop$children, loop$path, loop$cache, loop$events) {
   while (true) {
     let old = loop$old;
@@ -3912,10 +3881,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
         return new PartialDiff(patch, cache, events2);
       } else {
         let $ = add_children(cache, events2, path, node_index, new$6);
-        let cache$1;
-        let events$1;
-        cache$1 = $[0];
-        events$1 = $[1];
+        let cache$1 = $[0];
+        let events$1 = $[1];
         let insert5 = insert4(new$6, node_index - moved_offset);
         let changes$1 = prepend(insert5, changes);
         let patch = new Patch(patch_index, removed, changes$1, children);
@@ -3996,10 +3963,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
           } else {
             let before = node_index - moved_offset;
             let $ = add_child(cache, events2, path, node_index, next);
-            let cache$1;
-            let events$1;
-            cache$1 = $[0];
-            events$1 = $[1];
+            let cache$1 = $[0];
+            let events$1 = $[1];
             let insert5 = insert4(toList([next]), before);
             let changes$1 = prepend(insert5, changes);
             loop$old = old;
@@ -4038,10 +4003,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
         } else {
           let change = replace2(node_index - moved_offset, next);
           let $ = replace_child(cache, events2, path, node_index, prev, next);
-          let cache$1;
-          let events$1;
-          cache$1 = $[0];
-          events$1 = $[1];
+          let cache$1 = $[0];
+          let events$1 = $[1];
           loop$old = old_remaining;
           loop$old_keyed = old_keyed;
           loop$new = new_remaining;
@@ -4067,12 +4030,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let next2 = $1;
             let new$1 = new$6.tail;
             let $2 = do_diff(prev2.children, prev2.keyed_children, next2.children, next2.keyed_children, empty2(), 0, 0, 0, node_index, empty_list, empty_list, add2(path, node_index, next2.key), cache, events2);
-            let patch;
-            let cache$1;
-            let events$1;
-            patch = $2.patch;
-            cache$1 = $2.cache;
-            events$1 = $2.events;
+            let patch = $2.patch;
+            let cache$1 = $2.cache;
+            let events$1 = $2.events;
             let _block;
             let $3 = patch.changes;
             if ($3 instanceof Empty) {
@@ -4112,10 +4072,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4142,12 +4100,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
               let child_path = add2(path, node_index, next2.key);
               let controlled = is_controlled(cache, next2.namespace, next2.tag, child_path);
               let $2 = diff_attributes(controlled, child_path, events2, prev2.attributes, next2.attributes, empty_list, empty_list);
-              let added_attrs;
-              let removed_attrs;
-              let events$1;
-              added_attrs = $2.added;
-              removed_attrs = $2.removed;
-              events$1 = $2.events;
+              let added_attrs = $2.added;
+              let removed_attrs = $2.removed;
+              let events$1 = $2.events;
               let _block;
               if (added_attrs instanceof Empty && removed_attrs instanceof Empty) {
                 _block = empty_list;
@@ -4156,12 +4111,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
               }
               let initial_child_changes = _block;
               let $3 = do_diff(prev2.children, prev2.keyed_children, next2.children, next2.keyed_children, empty2(), 0, 0, 0, node_index, initial_child_changes, empty_list, child_path, cache, events$1);
-              let patch;
-              let cache$1;
-              let events$2;
-              patch = $3.patch;
-              cache$1 = $3.cache;
-              events$2 = $3.events;
+              let patch = $3.patch;
+              let cache$1 = $3.cache;
+              let events$2 = $3.events;
               let _block$1;
               let $4 = patch.changes;
               if ($4 instanceof Empty) {
@@ -4201,10 +4153,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
               let new_remaining = new$6.tail;
               let change = replace2(node_index - moved_offset, next3);
               let $2 = replace_child(cache, events2, path, node_index, prev3, next3);
-              let cache$1;
-              let events$1;
-              cache$1 = $2[0];
-              events$1 = $2[1];
+              let cache$1 = $2[0];
+              let events$1 = $2[1];
               loop$old = old_remaining;
               loop$old_keyed = old_keyed;
               loop$new = new_remaining;
@@ -4227,10 +4177,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4295,10 +4243,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4323,12 +4269,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new$1 = new$6.tail;
             let child_path = add2(path, node_index, next2.key);
             let $2 = diff_attributes(false, child_path, events2, prev2.attributes, next2.attributes, empty_list, empty_list);
-            let added_attrs;
-            let removed_attrs;
-            let events$1;
-            added_attrs = $2.added;
-            removed_attrs = $2.removed;
-            events$1 = $2.events;
+            let added_attrs = $2.added;
+            let removed_attrs = $2.removed;
+            let events$1 = $2.events;
             let _block;
             if (added_attrs instanceof Empty && removed_attrs instanceof Empty) {
               _block = empty_list;
@@ -4372,10 +4315,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4401,12 +4342,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let child_path = add2(path, node_index, next2.key);
             let child_key = child(child_path);
             let $2 = do_diff(prepend(prev2.child, empty_list), empty2(), prepend(next2.child, empty_list), empty2(), empty2(), 0, 0, 0, node_index, empty_list, empty_list, subtree(child_path), cache, get_subtree(events2, child_key, prev2.mapper));
-            let patch;
-            let cache$1;
-            let child_events;
-            patch = $2.patch;
-            cache$1 = $2.cache;
-            child_events = $2.events;
+            let patch = $2.patch;
+            let cache$1 = $2.cache;
+            let child_events = $2.events;
             let events$1 = update_subtree(events2, child_key, next2.mapper, child_events);
             let _block;
             let $3 = patch.changes;
@@ -4447,10 +4385,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4516,10 +4452,8 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
             let new_remaining = new$6.tail;
             let change = replace2(node_index - moved_offset, next2);
             let $2 = replace_child(cache, events2, path, node_index, prev2, next2);
-            let cache$1;
-            let events$1;
-            cache$1 = $2[0];
-            events$1 = $2[1];
+            let cache$1 = $2[0];
+            let events$1 = $2[1];
             loop$old = old_remaining;
             loop$old_keyed = old_keyed;
             loop$new = new_remaining;
@@ -4543,12 +4477,9 @@ function do_diff(loop$old, loop$old_keyed, loop$new, loop$new_keyed, loop$moved,
 function diff(cache, old, new$6) {
   let cache$1 = tick(cache);
   let $ = do_diff(prepend(old, empty_list), empty2(), prepend(new$6, empty_list), empty2(), empty2(), 0, 0, 0, 0, empty_list, empty_list, root, cache$1, events(cache$1));
-  let patch;
-  let cache$2;
-  let events2;
-  patch = $.patch;
-  cache$2 = $.cache;
-  events2 = $.events;
+  let patch = $.patch;
+  let cache$2 = $.cache;
+  let events2 = $.events;
   return new Diff(patch, update_events(cache$2, events2));
 }
 
@@ -5062,26 +4993,20 @@ function extract_keyed_children(children) {
 }
 function element3(tag, attributes, children) {
   let $ = extract_keyed_children(children);
-  let keyed_children;
-  let children$1;
-  keyed_children = $[0];
-  children$1 = $[1];
+  let keyed_children = $[0];
+  let children$1 = $[1];
   return element("", "", tag, attributes, children$1, keyed_children, false, is_void_html_element(tag, ""));
 }
 function namespaced2(namespace, tag, attributes, children) {
   let $ = extract_keyed_children(children);
-  let keyed_children;
-  let children$1;
-  keyed_children = $[0];
-  children$1 = $[1];
+  let keyed_children = $[0];
+  let children$1 = $[1];
   return element("", namespace, tag, attributes, children$1, keyed_children, false, is_void_html_element(tag, namespace));
 }
 function fragment3(children) {
   let $ = extract_keyed_children(children);
-  let keyed_children;
-  let children$1;
-  keyed_children = $[0];
-  children$1 = $[1];
+  let keyed_children = $[0];
+  let children$1 = $[1];
   return fragment("", children$1, keyed_children);
 }
 
@@ -6071,11 +5996,6 @@ class ViewportProvidedTransform extends CustomType {
   }
 }
 var tag = "clique-background";
-function init3(_) {
-  let model = new Model(uuid(), new Dots, init2(), [20, 20], [20, 20], 1, 1, [0, 0], [0, 0]);
-  let effect = none();
-  return [model, effect];
-}
 function options() {
   return toList([
     adopt_styles(false),
@@ -6195,65 +6115,6 @@ function options() {
     })
   ]);
 }
-function update2(model, msg) {
-  if (msg instanceof ParentSetGap) {
-    let x = msg.x;
-    let y = msg.y;
-    let gap$1 = [x, y];
-    let scaled_gap = [x * model.transform[2], y * model.transform[2]];
-    let model$1 = new Model(model.id, model.pattern, model.transform, gap$1, scaled_gap, model.size, model.scaled_size, model.offset, model.scaled_offset);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof ParentSetOffset) {
-    let x = msg.x;
-    let y = msg.y;
-    let offset$1 = [x, y];
-    let scaled_offset = [
-      x * model.transform[2] + model.scaled_gap[0] / 2,
-      y * model.transform[2] + model.scaled_gap[1] / 2
-    ];
-    let model$1 = new Model(model.id, model.pattern, model.transform, model.gap, model.scaled_gap, model.size, model.scaled_size, offset$1, scaled_offset);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof ParentSetPattern) {
-    let value = msg.value;
-    let model$1 = new Model(model.id, value, model.transform, model.gap, model.scaled_gap, model.size, model.scaled_size, model.offset, model.scaled_offset);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof ParentSetSize) {
-    let value = msg.value;
-    let size$1 = max(1, value);
-    let scaled_size = size$1 * model.transform[2];
-    let model$1 = new Model(model.id, model.pattern, model.transform, model.gap, model.scaled_gap, size$1, scaled_size, model.offset, model.scaled_offset);
-    let effect = none();
-    return [model$1, effect];
-  } else {
-    let transform = msg.transform;
-    let scaled_gap = [model.gap[0] * transform[2], model.gap[1] * transform[2]];
-    let scaled_size = model.size * transform[2];
-    let scaled_offset = [
-      model.offset[0] * transform[2] + scaled_gap[0] / 2,
-      model.offset[1] * transform[2] + scaled_gap[1] / 2
-    ];
-    let model$1 = new Model(model.id, model.pattern, transform, model.gap, scaled_gap, model.size, scaled_size, model.offset, scaled_offset);
-    let effect = none();
-    return [model$1, effect];
-  }
-}
-function view_pattern(id2, transform, gap, attributes, children) {
-  return pattern(prepend(id(id2), prepend(attribute2("x", float_to_string(mod(transform[0], gap[0]))), prepend(attribute2("y", float_to_string(mod(transform[1], gap[1]))), prepend(attribute2("width", float_to_string(gap[0])), prepend(attribute2("height", float_to_string(gap[1])), prepend(attribute2("patternUnits", "userSpaceOnUse"), attributes)))))), children);
-}
-function view_dot_pattern(radius) {
-  return circle(toList([
-    attribute2("cx", float_to_string(radius)),
-    attribute2("cy", float_to_string(radius)),
-    attribute2("r", float_to_string(radius))
-  ]));
-}
-function view_line_pattern(dimensions) {
-  let path2 = "M" + float_to_string(dimensions[0] / 2) + " 0 V" + float_to_string(dimensions[1]) + " M0 " + float_to_string(dimensions[1] / 2) + " H" + float_to_string(dimensions[0]);
-  return path(toList([attribute2("d", path2), attribute2("stroke-width", "1")]));
-}
 function view_background(id2) {
   return rect(toList([
     attribute2("x", "0"),
@@ -6262,6 +6123,20 @@ function view_background(id2) {
     attribute2("height", "100%"),
     attribute2("fill", "url(#" + id2 + ")")
   ]));
+}
+function view_line_pattern(dimensions) {
+  let path2 = "M" + float_to_string(dimensions[0] / 2) + " 0 V" + float_to_string(dimensions[1]) + " M0 " + float_to_string(dimensions[1] / 2) + " H" + float_to_string(dimensions[0]);
+  return path(toList([attribute2("d", path2), attribute2("stroke-width", "1")]));
+}
+function view_dot_pattern(radius) {
+  return circle(toList([
+    attribute2("cx", float_to_string(radius)),
+    attribute2("cy", float_to_string(radius)),
+    attribute2("r", float_to_string(radius))
+  ]));
+}
+function view_pattern(id2, transform, gap, attributes, children) {
+  return pattern(prepend(id(id2), prepend(attribute2("x", float_to_string(mod(transform[0], gap[0]))), prepend(attribute2("y", float_to_string(mod(transform[1], gap[1]))), prepend(attribute2("width", float_to_string(gap[0])), prepend(attribute2("height", float_to_string(gap[1])), prepend(attribute2("patternUnits", "userSpaceOnUse"), attributes)))))), children);
 }
 function view(model) {
   return fragment2(toList([
@@ -6309,6 +6184,56 @@ function view(model) {
       view_background(model.id)
     ]))
   ]));
+}
+function update2(model, msg) {
+  if (msg instanceof ParentSetGap) {
+    let x = msg.x;
+    let y = msg.y;
+    let gap$1 = [x, y];
+    let scaled_gap = [x * model.transform[2], y * model.transform[2]];
+    let model$1 = new Model(model.id, model.pattern, model.transform, gap$1, scaled_gap, model.size, model.scaled_size, model.offset, model.scaled_offset);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof ParentSetOffset) {
+    let x = msg.x;
+    let y = msg.y;
+    let offset$1 = [x, y];
+    let scaled_offset = [
+      x * model.transform[2] + model.scaled_gap[0] / 2,
+      y * model.transform[2] + model.scaled_gap[1] / 2
+    ];
+    let model$1 = new Model(model.id, model.pattern, model.transform, model.gap, model.scaled_gap, model.size, model.scaled_size, offset$1, scaled_offset);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof ParentSetPattern) {
+    let value = msg.value;
+    let model$1 = new Model(model.id, value, model.transform, model.gap, model.scaled_gap, model.size, model.scaled_size, model.offset, model.scaled_offset);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof ParentSetSize) {
+    let value = msg.value;
+    let size$1 = max(1, value);
+    let scaled_size = size$1 * model.transform[2];
+    let model$1 = new Model(model.id, model.pattern, model.transform, model.gap, model.scaled_gap, size$1, scaled_size, model.offset, model.scaled_offset);
+    let effect = none();
+    return [model$1, effect];
+  } else {
+    let transform = msg.transform;
+    let scaled_gap = [model.gap[0] * transform[2], model.gap[1] * transform[2]];
+    let scaled_size = model.size * transform[2];
+    let scaled_offset = [
+      model.offset[0] * transform[2] + scaled_gap[0] / 2,
+      model.offset[1] * transform[2] + scaled_gap[1] / 2
+    ];
+    let model$1 = new Model(model.id, model.pattern, transform, model.gap, scaled_gap, model.size, scaled_size, model.offset, scaled_offset);
+    let effect = none();
+    return [model$1, effect];
+  }
+}
+function init3(_) {
+  let model = new Model(uuid(), new Dots, init2(), [20, 20], [20, 20], 1, 1, [0, 0], [0, 0]);
+  let effect = none();
+  return [model, effect];
 }
 function register() {
   return make_component(component(init3, update2, view, options()), tag);
@@ -6544,15 +6469,10 @@ class Inertia extends CustomType {
   }
 }
 var friction = 0.85;
-var min_velocity = 0.2;
 var threshold = 5;
+var min_velocity = 0.2;
 function start5(x, y) {
   return new Active(x, y, 0, 0);
-}
-function on_animation_frame(handler2) {
-  return after_paint((dispatch2, _) => {
-    return dispatch2(handler2);
-  });
 }
 function update3(state, x, y) {
   if (state instanceof Settled) {
@@ -6565,6 +6485,30 @@ function update3(state, x, y) {
     return [new Active(x, y, vx, vy), dx, dy];
   } else {
     return [start5(x, y), 0, 0];
+  }
+}
+function on_animation_frame(handler2) {
+  return after_paint((dispatch2, _) => {
+    return dispatch2(handler2);
+  });
+}
+function stop(state, tick2) {
+  if (state instanceof Settled) {
+    return [new Settled, none()];
+  } else if (state instanceof Active) {
+    let vx = state.vx;
+    let vy = state.vy;
+    let vx_abs = absolute_value(vx);
+    let vy_abs = absolute_value(vy);
+    let velocity_magnitude = vx_abs + vy_abs;
+    let $ = velocity_magnitude > threshold;
+    if ($) {
+      return [new Inertia(vx, vy), on_animation_frame(tick2)];
+    } else {
+      return [new Settled, none()];
+    }
+  } else {
+    return [new Settled, none()];
   }
 }
 function tick2(state, tick3) {
@@ -6585,25 +6529,6 @@ function tick2(state, tick3) {
     } else {
       return [new Inertia(vx$1, vy$1), vx$1, vy$1, on_animation_frame(tick3)];
     }
-  }
-}
-function stop(state, tick3) {
-  if (state instanceof Settled) {
-    return [new Settled, none()];
-  } else if (state instanceof Active) {
-    let vx = state.vx;
-    let vy = state.vy;
-    let vx_abs = absolute_value(vx);
-    let vy_abs = absolute_value(vy);
-    let velocity_magnitude = vx_abs + vy_abs;
-    let $ = velocity_magnitude > threshold;
-    if ($) {
-      return [new Inertia(vx, vy), on_animation_frame(tick3)];
-    } else {
-      return [new Settled, none()];
-    }
-  } else {
-    return [new Settled, none()];
   }
 }
 
@@ -6755,54 +6680,6 @@ class UserStartedDrag extends CustomType {
 class UserStoppedDrag extends CustomType {
 }
 var tag3 = "clique-node";
-function on_change(handler2) {
-  return on("clique:change", subfield(toList(["target", "id"]), string2, (id2) => {
-    return subfield(toList(["detail", "dx"]), float2, (dx) => {
-      return subfield(toList(["detail", "dy"]), float2, (dy) => {
-        return success(handler2(id2, dx, dy));
-      });
-    });
-  }));
-}
-function emit_change(dx, dy) {
-  return guard(dx === 0 && dy === 0, none(), () => {
-    return emit2("clique:change", object2(toList([["dx", float3(dx)], ["dy", float3(dy)]])));
-  });
-}
-function on_select(handler2) {
-  return on("clique:select", subfield(toList(["target", "id"]), string2, (id2) => {
-    return success(handler2(id2));
-  }));
-}
-function emit_select() {
-  return emit2("clique:select", null$());
-}
-function emit_drag(x, y, dx, dy) {
-  return emit2("clique:drag", object2(toList([
-    ["x", float3(x)],
-    ["y", float3(y)],
-    ["dx", float3(dx)],
-    ["dy", float3(dy)]
-  ])));
-}
-function on_mount(handler2) {
-  return on("clique:mount", field("target", element_decoder(), (target) => {
-    return subfield(toList(["target", "id"]), string2, (id2) => {
-      return success(handler2(target, id2));
-    });
-  }));
-}
-function emit_mount() {
-  return emit2("clique:mount", null$());
-}
-function provide3(id2) {
-  return provide("clique/node", object2(toList([["id", string3(id2)]])));
-}
-function on_context_change2(handler2) {
-  return on_context_change("clique/node", field("id", string2, (id2) => {
-    return success(handler2(id2));
-  }));
-}
 function options2() {
   return toList([
     adopt_styles(false),
@@ -6850,21 +6727,56 @@ function options2() {
     })
   ]);
 }
-function set_transform2(position) {
-  return before_paint((_, shadow_root) => {
-    let transform = "translate(" + float_to_string(position.value[0]) + "px, " + float_to_string(position.value[1]) + "px)";
-    return set_transform(shadow_root, transform);
+function view2(_) {
+  let handle_mousedown = field("target", element_decoder(), (target) => {
+    return field("clientX", float2, (client_x) => {
+      return field("clientY", float2, (client_y) => {
+        let drag = success(handler(new UserStartedDrag(client_x, client_y), false, true));
+        let select = success(handler(new UserSelectedNode, false, false));
+        let $ = attribute3(target, "data-clique-disable");
+        if ($ instanceof Ok) {
+          let $1 = $[0];
+          if ($1 === "") {
+            return drag;
+          } else {
+            let disable = $1;
+            let _block;
+            let _pipe = disable;
+            let _pipe$1 = split2(_pipe, " ");
+            let _pipe$2 = map3(_pipe$1, trim);
+            _block = contains(_pipe$2, "drag");
+            let nodrag$1 = _block;
+            if (nodrag$1) {
+              return select;
+            } else {
+              return drag;
+            }
+          }
+        } else {
+          return drag;
+        }
+      });
+    });
   });
-}
-function init4(_) {
-  let model = new Model2("", new$8([0, 0]), new Settled, 1);
-  let effect = batch(toList([
-    set_transform2(model.position),
-    after_paint((dispatch2, _2) => {
-      return dispatch2(new BrowserPainted);
-    })
+  return fragment2(toList([
+    style2(toList([]), `:host {
+        cursor: grab;
+        display: block;
+        min-width: max-content;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        will-change: transform;
+        backface-visibility: hidden;
+      }
+
+      :host(:state(dragging)) {
+        cursor: grabbing;
+        user-select: none;
+      }
+      `),
+    default_slot(toList([advanced("mousedown", handle_mousedown)]), toList([]))
   ]));
-  return [model, effect];
 }
 function add_window_mousemove_listener2() {
   return from2((dispatch2) => {
@@ -6886,19 +6798,43 @@ function add_window_mousemove_listener2() {
     });
   });
 }
+function emit_select() {
+  return emit2("clique:select", null$());
+}
+function set_transform2(position) {
+  return before_paint((_, shadow_root) => {
+    let transform = "translate(" + float_to_string(position.value[0]) + "px, " + float_to_string(position.value[1]) + "px)";
+    return set_transform(shadow_root, transform);
+  });
+}
+function emit_change(dx, dy) {
+  return guard(dx === 0 && dy === 0, none(), () => {
+    return emit2("clique:change", object2(toList([["dx", float3(dx)], ["dy", float3(dy)]])));
+  });
+}
+function emit_drag(x, y, dx, dy) {
+  return emit2("clique:drag", object2(toList([
+    ["x", float3(x)],
+    ["y", float3(y)],
+    ["dx", float3(dx)],
+    ["dy", float3(dy)]
+  ])));
+}
+function provide3(id2) {
+  return provide("clique/node", object2(toList([["id", string3(id2)]])));
+}
+function emit_mount() {
+  return emit2("clique:mount", null$());
+}
 function update5(model, msg) {
   if (msg instanceof BrowserPainted) {
     return [model, emit_mount()];
   } else if (msg instanceof InertiaSimulationTicked) {
     let $ = tick2(model.dragging, new InertiaSimulationTicked);
-    let dragging;
-    let vx;
-    let vy;
-    let inertia_effect;
-    dragging = $[0];
-    vx = $[1];
-    vy = $[2];
-    inertia_effect = $[3];
+    let dragging = $[0];
+    let vx = $[1];
+    let vy = $[2];
+    let inertia_effect = $[3];
     let x = model.position.value[0] + divideFloat(vx, model.scale);
     let y = model.position.value[1] + divideFloat(vy, model.scale);
     let dx = x - model.position.value[0];
@@ -6953,12 +6889,9 @@ function update5(model, msg) {
     let x = msg.x;
     let y = msg.y;
     let $ = update3(model.dragging, x, y);
-    let dragging;
-    let dx;
-    let dy;
-    dragging = $[0];
-    dx = $[1];
-    dy = $[2];
+    let dragging = $[0];
+    let dx = $[1];
+    let dy = $[2];
     let dx$1 = divideFloat(dx, model.scale);
     let dy$1 = divideFloat(dy, model.scale);
     let nx = model.position.value[0] + dx$1;
@@ -6995,68 +6928,51 @@ function update5(model, msg) {
     return [model$1, effect];
   } else {
     let $ = stop(model.dragging, new InertiaSimulationTicked);
-    let dragging;
-    let inertia_effect;
-    dragging = $[0];
-    inertia_effect = $[1];
+    let dragging = $[0];
+    let inertia_effect = $[1];
     let model$1 = new Model2(model.id, model.position, dragging, model.scale);
     let effect = batch(toList([inertia_effect, remove_pseudo_state2("dragging")]));
     return [model$1, effect];
   }
 }
-function view2(_) {
-  let handle_mousedown = field("target", element_decoder(), (target) => {
-    return field("clientX", float2, (client_x) => {
-      return field("clientY", float2, (client_y) => {
-        let drag = success(handler(new UserStartedDrag(client_x, client_y), false, true));
-        let select = success(handler(new UserSelectedNode, false, false));
-        let $ = attribute3(target, "data-clique-disable");
-        if ($ instanceof Ok) {
-          let $1 = $[0];
-          if ($1 === "") {
-            return drag;
-          } else {
-            let disable = $1;
-            let _block;
-            let _pipe = disable;
-            let _pipe$1 = split2(_pipe, " ");
-            let _pipe$2 = map3(_pipe$1, trim);
-            _block = contains(_pipe$2, "drag");
-            let nodrag$1 = _block;
-            if (nodrag$1) {
-              return select;
-            } else {
-              return drag;
-            }
-          }
-        } else {
-          return drag;
-        }
-      });
-    });
-  });
-  return fragment2(toList([
-    style2(toList([]), `:host {
-        cursor: grab;
-        display: block;
-        min-width: max-content;
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        will-change: transform;
-        backface-visibility: hidden;
-      }
-
-      :host(:state(dragging)) {
-        cursor: grabbing;
-        user-select: none;
-      }
-      `),
-    default_slot(toList([advanced("mousedown", handle_mousedown)]), toList([]))
+function init4(_) {
+  let model = new Model2("", new$8([0, 0]), new Settled, 1);
+  let effect = batch(toList([
+    set_transform2(model.position),
+    after_paint((dispatch2, _2) => {
+      return dispatch2(new BrowserPainted);
+    })
   ]));
+  return [model, effect];
 }
 function register2() {
   return make_component(component(init4, update5, view2, options2()), tag3);
+}
+function on_change(handler2) {
+  return on("clique:change", subfield(toList(["target", "id"]), string2, (id2) => {
+    return subfield(toList(["detail", "dx"]), float2, (dx) => {
+      return subfield(toList(["detail", "dy"]), float2, (dy) => {
+        return success(handler2(id2, dx, dy));
+      });
+    });
+  }));
+}
+function on_select(handler2) {
+  return on("clique:select", subfield(toList(["target", "id"]), string2, (id2) => {
+    return success(handler2(id2));
+  }));
+}
+function on_mount(handler2) {
+  return on("clique:mount", field("target", element_decoder(), (target) => {
+    return subfield(toList(["target", "id"]), string2, (id2) => {
+      return success(handler2(target, id2));
+    });
+  }));
+}
+function on_context_change2(handler2) {
+  return on_context_change("clique/node", field("id", string2, (id2) => {
+    return success(handler2(id2));
+  }));
 }
 
 // build/dev/javascript/clique/clique/position.mjs
@@ -7075,6 +6991,61 @@ class BottomLeft extends CustomType {
 class BottomRight extends CustomType {
 }
 class Left extends CustomType {
+}
+function to_string4(value) {
+  if (value instanceof Top) {
+    return "top";
+  } else if (value instanceof TopLeft) {
+    return "top-left";
+  } else if (value instanceof TopRight) {
+    return "top-right";
+  } else if (value instanceof Right) {
+    return "right";
+  } else if (value instanceof Bottom) {
+    return "bottom";
+  } else if (value instanceof BottomLeft) {
+    return "bottom-left";
+  } else if (value instanceof BottomRight) {
+    return "bottom-right";
+  } else {
+    return "left";
+  }
+}
+function from_string(value) {
+  if (value === "top-left") {
+    return new Ok(new TopLeft);
+  } else if (value === "top") {
+    return new Ok(new Top);
+  } else if (value === "top-right") {
+    return new Ok(new TopRight);
+  } else if (value === "right") {
+    return new Ok(new Right);
+  } else if (value === "bottom-right") {
+    return new Ok(new BottomRight);
+  } else if (value === "bottom") {
+    return new Ok(new Bottom);
+  } else if (value === "bottom-left") {
+    return new Ok(new BottomLeft);
+  } else if (value === "left") {
+    return new Ok(new Left);
+  } else {
+    return new Error(undefined);
+  }
+}
+function position_to_json(position) {
+  let _pipe = to_string4(position);
+  return string3(_pipe);
+}
+function position_decoder() {
+  return then$(string2, (variant) => {
+    let $ = from_string(variant);
+    if ($ instanceof Ok) {
+      let value = $[0];
+      return success(value);
+    } else {
+      return failure(new Right, "Position");
+    }
+  });
 }
 
 // build/dev/javascript/clique/clique/handle.mjs
@@ -7136,61 +7107,6 @@ class ViewportProvidedConnection extends CustomType {
   }
 }
 var tag4 = "clique-handle";
-function decoder2() {
-  return field("node", string2, (node) => {
-    return field("name", string2, (name) => {
-      return success(new Handle(node, name));
-    });
-  });
-}
-function to_json6(handle2) {
-  return object2(toList([
-    ["node", string3(handle2.node)],
-    ["name", string3(handle2.name)]
-  ]));
-}
-function on_connection_start(handler2) {
-  return on("clique:connection-start", field("detail", decoder2(), (handle2) => {
-    return success(handler2(handle2));
-  }));
-}
-function emit_connection_start(node, handle2) {
-  return emit2("clique:connection-start", object2(toList([["node", string3(node)], ["name", string3(handle2)]])));
-}
-function on_connection_complete(handler2) {
-  return on("clique:connection-complete", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
-    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
-      return success(handler2(from3, to));
-    });
-  }));
-}
-function emit_connection_complete(from3, to) {
-  return emit2("clique:connection-complete", object2(toList([
-    [
-      "from",
-      object2(toList([
-        ["node", string3(from3[0])],
-        ["name", string3(from3[1])]
-      ]))
-    ],
-    [
-      "to",
-      object2(toList([
-        ["node", string3(to[0])],
-        ["name", string3(to[1])]
-      ]))
-    ]
-  ])));
-}
-function init5(_) {
-  let model = new Model3("", "", false, new None, 5);
-  let effect = batch(toList([
-    add_event_listener2("mousedown", success(handler(new UserStartedConnection, false, true))),
-    add_event_listener2("mouseup", success(handler(new UserCompletedConnection, false, false))),
-    set_pseudo_state2("invalid")
-  ]));
-  return [model, effect];
-}
 function options3() {
   return toList([
     adopt_styles(false),
@@ -7233,6 +7149,59 @@ function options3() {
       return new ViewportProvidedConnection(var0);
     })
   ]);
+}
+function view_tolerance_box(value) {
+  let tolerance$1 = "calc(100% + " + to_string(value * 2) + "px)";
+  let translate = "translate(-" + to_string(value) + "px, -" + to_string(value) + "px)";
+  return div(toList([
+    style("width", tolerance$1),
+    style("height", tolerance$1),
+    style("transform", translate)
+  ]), toList([]));
+}
+function view3(model) {
+  return fragment2(toList([
+    style2(toList([]), `
+      :host(:state(disabled)), :host(:state(invalid)) {
+        pointer-events: none;
+      }
+
+      :host(:hover) {
+        cursor: crosshair;
+      }
+
+      `),
+    default_slot(toList([]), toList([])),
+    (() => {
+      let $ = model.tolerance;
+      if ($ === 0) {
+        return none2();
+      } else {
+        return view_tolerance_box(model.tolerance);
+      }
+    })()
+  ]));
+}
+function emit_connection_start(node, handle2) {
+  return emit2("clique:connection-start", object2(toList([["node", string3(node)], ["name", string3(handle2)]])));
+}
+function emit_connection_complete(from3, to) {
+  return emit2("clique:connection-complete", object2(toList([
+    [
+      "from",
+      object2(toList([
+        ["node", string3(from3[0])],
+        ["name", string3(from3[1])]
+      ]))
+    ],
+    [
+      "to",
+      object2(toList([
+        ["node", string3(to[0])],
+        ["name", string3(to[1])]
+      ]))
+    ]
+  ])));
 }
 function update6(model, msg) {
   if (msg instanceof NodeProvidedContext) {
@@ -7326,49 +7295,229 @@ function update6(model, msg) {
     return [model$1, effect];
   }
 }
-function view_tolerance_box(value) {
-  let tolerance$1 = "calc(100% + " + to_string(value * 2) + "px)";
-  let translate = "translate(-" + to_string(value) + "px, -" + to_string(value) + "px)";
-  return div(toList([
-    style("width", tolerance$1),
-    style("height", tolerance$1),
-    style("transform", translate)
-  ]), toList([]));
-}
-function view3(model) {
-  return fragment2(toList([
-    style2(toList([]), `
-      :host(:state(disabled)), :host(:state(invalid)) {
-        pointer-events: none;
-      }
-
-      :host(:hover) {
-        cursor: crosshair;
-      }
-
-      `),
-    default_slot(toList([]), toList([])),
-    (() => {
-      let $ = model.tolerance;
-      if ($ === 0) {
-        return none2();
-      } else {
-        return view_tolerance_box(model.tolerance);
-      }
-    })()
+function init5(_) {
+  let model = new Model3("", "", false, new None, 5);
+  let effect = batch(toList([
+    add_event_listener2("mousedown", success(handler(new UserStartedConnection, false, true))),
+    add_event_listener2("mouseup", success(handler(new UserCompletedConnection, false, false))),
+    set_pseudo_state2("invalid")
   ]));
+  return [model, effect];
 }
 function register3() {
   return make_component(component(init5, update6, view3, options3()), tag4);
 }
+function decoder2() {
+  return field("node", string2, (node) => {
+    return field("name", string2, (name) => {
+      return success(new Handle(node, name));
+    });
+  });
+}
+function to_json6(handle2) {
+  return object2(toList([
+    ["node", string3(handle2.node)],
+    ["name", string3(handle2.name)]
+  ]));
+}
+function on_connection_start(handler2) {
+  return on("clique:connection-start", field("detail", decoder2(), (handle2) => {
+    return success(handler2(handle2));
+  }));
+}
+function on_connection_complete(handler2) {
+  return on("clique:connection-complete", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
+    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
+      return success(handler2(from3, to));
+    });
+  }));
+}
+
+// build/dev/javascript/clique/clique/internal/path.ffi.mjs
+var sqrt = Math.sqrt;
+
+// build/dev/javascript/clique/clique/internal/path.mjs
+class Step extends CustomType {
+  constructor(mid_ratio) {
+    super();
+    this.mid_ratio = mid_ratio;
+  }
+}
+class Linear extends CustomType {
+}
+class BezierFromPositions extends CustomType {
+  constructor(from_position, to_position) {
+    super();
+    this.from_position = from_position;
+    this.to_position = to_position;
+  }
+}
+function format(value) {
+  let _pipe = value;
+  let _pipe$1 = to_precision(_pipe, 2);
+  return float_to_string(_pipe$1);
+}
+function bezier_from_control_points(from_x, from_y, to_x, to_y, control_point_1, control_point_2) {
+  let cx1 = control_point_1[0];
+  let cy1 = control_point_1[1];
+  let cx2 = control_point_2[0];
+  let cy2 = control_point_2[1];
+  let path2 = "M" + format(from_x) + "," + format(from_y) + "C" + format(cx1) + "," + format(cy1) + " " + format(cx2) + "," + format(cy2) + " " + format(to_x) + "," + format(to_y);
+  let label_x = from_x * 0.125 + cx1 * 0.375 + cx2 * 0.375 + to_x * 0.125;
+  let label_y = from_y * 0.125 + cy1 * 0.375 + cy2 * 0.375 + to_y * 0.125;
+  return [
+    path2,
+    to_precision(label_x, 2),
+    to_precision(label_y, 2)
+  ];
+}
+function bezier_control_point_offset(distance, curvature) {
+  let $ = distance >= 0;
+  if ($) {
+    return 0.5 * distance;
+  } else {
+    return curvature * 25 * sqrt(0 - distance);
+  }
+}
+function bezier_control_point(from_x, from_y, from_position, to_x, to_y, curvature) {
+  if (from_position instanceof Top) {
+    return [
+      from_x,
+      from_y - bezier_control_point_offset(from_y - to_y, curvature)
+    ];
+  } else if (from_position instanceof TopLeft) {
+    return [
+      from_x,
+      from_y - bezier_control_point_offset(from_y - to_y, curvature)
+    ];
+  } else if (from_position instanceof TopRight) {
+    return [
+      from_x,
+      from_y - bezier_control_point_offset(from_y - to_y, curvature)
+    ];
+  } else if (from_position instanceof Right) {
+    return [
+      from_x + bezier_control_point_offset(to_x - from_x, curvature),
+      from_y
+    ];
+  } else if (from_position instanceof Bottom) {
+    return [
+      from_x,
+      from_y + bezier_control_point_offset(to_y - from_y, curvature)
+    ];
+  } else if (from_position instanceof BottomLeft) {
+    return [
+      from_x,
+      from_y + bezier_control_point_offset(to_y - from_y, curvature)
+    ];
+  } else if (from_position instanceof BottomRight) {
+    return [
+      from_x,
+      from_y + bezier_control_point_offset(to_y - from_y, curvature)
+    ];
+  } else {
+    return [
+      from_x - bezier_control_point_offset(from_x - to_x, curvature),
+      from_y
+    ];
+  }
+}
+function bezier_from_directions(from_x, from_y, from_direction, to_x, to_y, to_direction) {
+  let curvature = 0.25;
+  let c1 = bezier_control_point(from_x, from_y, from_direction, to_x, to_y, curvature);
+  let c2 = bezier_control_point(to_x, to_y, to_direction, from_x, from_y, curvature);
+  return bezier_from_control_points(from_x, from_y, to_x, to_y, c1, c2);
+}
+function linear(from_x, from_y, to_x, to_y) {
+  let path2 = "M" + format(from_x) + "," + format(from_y) + " L" + format(to_x) + "," + format(to_y);
+  let label_x = to_precision((from_x + to_x) / 2, 2);
+  let label_y = to_precision((from_y + to_y) / 2, 2);
+  return [path2, label_x, label_y];
+}
+function step(from_x, from_y, to_x, to_y, mid_ratio) {
+  let mid_x = to_precision(from_x + (to_x - from_x) * mid_ratio, 2);
+  let mid_y = to_precision(from_y + (to_y - from_y) / 2, 2);
+  let dx1 = mid_x - from_x;
+  let dy1 = 0;
+  let dx2 = 0;
+  let dy2 = to_y - from_y;
+  let dx3 = to_x - mid_x;
+  let dy3 = 0;
+  let path2 = "M" + format(from_x) + "," + format(from_y) + "l" + format(dx1) + "," + format(dy1) + "l" + format(dx2) + "," + format(dy2) + "l" + format(dx3) + "," + format(dy3);
+  let label_x = mid_x;
+  let label_y = mid_y;
+  return [path2, label_x, label_y];
+}
+function default$(kind, from3, to) {
+  if (kind instanceof Step) {
+    let mid_ratio = kind.mid_ratio;
+    return step(from3[0], from3[1], to[0], to[1], mid_ratio);
+  } else if (kind instanceof Linear) {
+    return linear(from3[0], from3[1], to[0], to[1]);
+  } else {
+    let from_pos = kind.from_position;
+    let to_pos = kind.to_position;
+    return bezier_from_directions(from3[0], from3[1], from_pos, to[0], to[1], to_pos);
+  }
+}
+function string_to_path_kind(kind, bezier_from_position, bezier_to_position, step_mid_ratio) {
+  if (kind === "linear") {
+    return new Linear;
+  } else if (kind === "step") {
+    return new Step(unwrap(step_mid_ratio, 0.5));
+  } else {
+    return new BezierFromPositions(unwrap(bezier_from_position, new Left), unwrap(bezier_to_position, new Right));
+  }
+}
+function path_kind_to_json(path_kind) {
+  if (path_kind instanceof Step) {
+    let mid_ratio = path_kind.mid_ratio;
+    return object2(toList([
+      ["type", string3("step")],
+      ["mid_ratio", float3(mid_ratio)]
+    ]));
+  } else if (path_kind instanceof Linear) {
+    return object2(toList([["type", string3("linear")]]));
+  } else {
+    let from_position = path_kind.from_position;
+    let to_position = path_kind.to_position;
+    return object2(toList([
+      ["type", string3("bezier")],
+      ["from_position", position_to_json(from_position)],
+      ["to_position", position_to_json(to_position)]
+    ]));
+  }
+}
+function path_kind_decoder() {
+  return field("type", string2, (variant) => {
+    if (variant === "step") {
+      return field("mid_ratio", float2, (mid_ratio) => {
+        return success(new Step(mid_ratio));
+      });
+    } else if (variant === "linear") {
+      return success(new Linear);
+    } else if (variant === "bezier") {
+      return field("from_position", position_decoder(), (from_position) => {
+        return field("to_position", position_decoder(), (to_position) => {
+          return success(new BezierFromPositions(from_position, to_position));
+        });
+      });
+    } else {
+      return failure(new Linear, "PathKind");
+    }
+  });
+}
 
 // build/dev/javascript/clique/clique/edge.mjs
 class Model4 extends CustomType {
-  constructor(from3, to, kind) {
+  constructor(from3, to, kind, bezier_from_position, bezier_to_position, step_mid_ratio) {
     super();
     this.from = from3;
     this.to = to;
     this.kind = kind;
+    this.bezier_from_position = bezier_from_position;
+    this.bezier_to_position = bezier_to_position;
+    this.step_mid_ratio = step_mid_ratio;
   }
 }
 
@@ -7398,110 +7547,28 @@ class ParentSetType extends CustomType {
     this.value = value;
   }
 }
+
+class ParentSetBezierFromPosition extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetBezierToPosition extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
+
+class ParentSetStepMidRatio extends CustomType {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+}
 var tag5 = "clique-edge";
-function on_disconnect(handler2) {
-  return on("clique:disconnect", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
-    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
-      return success(handler2(from3, to));
-    });
-  }));
-}
-function emit_disconnect(from3, to) {
-  return emit2("clique:disconnect", object2(toList([["from", to_json6(from3)], ["to", to_json6(to)]])));
-}
-function on_reconnect(handler2) {
-  return on("clique:reconnect", subfield(toList(["detail", "old"]), field("from", decoder2(), (from3) => {
-    return field("to", decoder2(), (to) => {
-      return success([from3, to]);
-    });
-  }), (old) => {
-    return subfield(toList(["detail", "new"]), field("from", decoder2(), (from3) => {
-      return field("to", decoder2(), (to) => {
-        return success([from3, to]);
-      });
-    }), (new$9) => {
-      return subfield(toList(["detail", "type"]), string2, (kind) => {
-        return success(handler2(old, new$9, kind));
-      });
-    });
-  }));
-}
-function emit_reconnect(old, new$9, new_kind) {
-  return emit2("clique:reconnect", object2(toList([
-    [
-      "old",
-      object2(toList([
-        ["from", to_json6(old[0])],
-        ["to", to_json6(old[1])]
-      ]))
-    ],
-    [
-      "new",
-      object2(toList([
-        ["from", to_json6(new$9[0])],
-        ["to", to_json6(new$9[1])]
-      ]))
-    ],
-    ["type", string3(new_kind)]
-  ])));
-}
-function on_connect(handler2) {
-  return on("clique:connect", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
-    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
-      return subfield(toList(["detail", "type"]), string2, (kind) => {
-        return success(handler2(from3, to, kind));
-      });
-    });
-  }));
-}
-function emit_connect(from3, to, kind) {
-  return emit2("clique:connect", object2(toList([
-    ["from", to_json6(from3)],
-    ["to", to_json6(to)],
-    ["type", string3(kind)]
-  ])));
-}
-function emit_change2(old_from, old_to, new_from, new_to, kind) {
-  let _block;
-  if (kind === "") {
-    _block = "bezier";
-  } else {
-    _block = kind;
-  }
-  let new_kind = _block;
-  if (old_from instanceof Some) {
-    if (old_to instanceof Some) {
-      if (new_from instanceof Some && new_to instanceof Some) {
-        let old_from$1 = old_from[0];
-        let old_to$1 = old_to[0];
-        let new_from$1 = new_from[0];
-        let new_to$1 = new_to[0];
-        return emit_reconnect([old_from$1, old_to$1], [new_from$1, new_to$1], new_kind);
-      } else {
-        let old_from$1 = old_from[0];
-        let old_to$1 = old_to[0];
-        return emit_disconnect(old_from$1, old_to$1);
-      }
-    } else if (new_from instanceof Some && new_to instanceof Some) {
-      let new_from$1 = new_from[0];
-      let new_to$1 = new_to[0];
-      return emit_connect(new_from$1, new_to$1, new_kind);
-    } else {
-      return none();
-    }
-  } else if (new_from instanceof Some && new_to instanceof Some) {
-    let new_from$1 = new_from[0];
-    let new_to$1 = new_to[0];
-    return emit_connect(new_from$1, new_to$1, new_kind);
-  } else {
-    return none();
-  }
-}
-function init6(_) {
-  let model = new Model4(new None, new None, "bezier");
-  let effect = none();
-  return [model, effect];
-}
 function options4() {
   return toList([
     adopt_styles(false),
@@ -7555,38 +7622,43 @@ function options4() {
     }),
     on_attribute_change("type", (value) => {
       if (value === "") {
-        return new Ok(new ParentSetType("bezier"));
+        return new Ok(new ParentSetType("bezier-from-positions"));
       } else {
         return new Ok(new ParentSetType(value));
       }
+    }),
+    on_attribute_change("bezier-from-position", (value) => {
+      let $ = from_string(value);
+      if ($ instanceof Ok) {
+        let pos = $[0];
+        return new Ok(new ParentSetBezierFromPosition(pos));
+      } else {
+        return new Ok(new ParentSetBezierFromPosition(new Right));
+      }
+    }),
+    on_attribute_change("bezier-to-position", (value) => {
+      let $ = from_string(value);
+      if ($ instanceof Ok) {
+        let pos = $[0];
+        return new Ok(new ParentSetBezierToPosition(pos));
+      } else {
+        return new Ok(new ParentSetBezierToPosition(new Left));
+      }
+    }),
+    on_attribute_change("step-mid-ratio", (value) => {
+      let $ = parse_float(value);
+      if ($ instanceof Ok) {
+        let value$1 = $[0];
+        if (0 <= value$1 && value$1 >= 1) {
+          return new Ok(new ParentSetStepMidRatio(value$1));
+        } else {
+          return new Ok(new ParentSetStepMidRatio(0.5));
+        }
+      } else {
+        return new Ok(new ParentSetStepMidRatio(0.5));
+      }
     })
   ]);
-}
-function update7(prev, msg) {
-  if (msg instanceof ParentRemovedFrom) {
-    let next = new Model4(new None, prev.to, prev.kind);
-    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next.kind);
-    return [next, effect];
-  } else if (msg instanceof ParentRemovedTo) {
-    let next = new Model4(prev.from, new None, prev.kind);
-    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next.kind);
-    return [next, effect];
-  } else if (msg instanceof ParentSetFrom) {
-    let value = msg.value;
-    let next = new Model4(new Some(value), prev.to, prev.kind);
-    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next.kind);
-    return [next, effect];
-  } else if (msg instanceof ParentSetTo) {
-    let value = msg.value;
-    let next = new Model4(prev.from, new Some(value), prev.kind);
-    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next.kind);
-    return [next, effect];
-  } else {
-    let value = msg.value;
-    let next = new Model4(prev.from, prev.to, value);
-    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next.kind);
-    return [next, effect];
-  }
 }
 function view4(model) {
   return fragment2(toList([
@@ -7619,8 +7691,150 @@ function view4(model) {
     })()
   ]));
 }
+function emit_connect(from3, to, kind) {
+  return emit2("clique:connect", object2(toList([
+    ["from", to_json6(from3)],
+    ["to", to_json6(to)],
+    ["type", path_kind_to_json(kind)]
+  ])));
+}
+function emit_disconnect(from3, to) {
+  return emit2("clique:disconnect", object2(toList([["from", to_json6(from3)], ["to", to_json6(to)]])));
+}
+function emit_reconnect(old, new$9, new_kind) {
+  return emit2("clique:reconnect", object2(toList([
+    [
+      "old",
+      object2(toList([
+        ["from", to_json6(old[0])],
+        ["to", to_json6(old[1])]
+      ]))
+    ],
+    [
+      "new",
+      object2(toList([
+        ["from", to_json6(new$9[0])],
+        ["to", to_json6(new$9[1])]
+      ]))
+    ],
+    ["type", path_kind_to_json(new_kind)]
+  ])));
+}
+function emit_change2(old_from, old_to, new_from, new_to, kind) {
+  if (old_from instanceof Some) {
+    if (old_to instanceof Some) {
+      if (new_from instanceof Some && new_to instanceof Some) {
+        let old_from$1 = old_from[0];
+        let old_to$1 = old_to[0];
+        let new_from$1 = new_from[0];
+        let new_to$1 = new_to[0];
+        return emit_reconnect([old_from$1, old_to$1], [new_from$1, new_to$1], kind);
+      } else {
+        let old_from$1 = old_from[0];
+        let old_to$1 = old_to[0];
+        return emit_disconnect(old_from$1, old_to$1);
+      }
+    } else if (new_from instanceof Some && new_to instanceof Some) {
+      let new_from$1 = new_from[0];
+      let new_to$1 = new_to[0];
+      return emit_connect(new_from$1, new_to$1, kind);
+    } else {
+      return none();
+    }
+  } else if (new_from instanceof Some && new_to instanceof Some) {
+    let new_from$1 = new_from[0];
+    let new_to$1 = new_to[0];
+    return emit_connect(new_from$1, new_to$1, kind);
+  } else {
+    return none();
+  }
+}
+function update7(prev, msg) {
+  let prev_path_kind = string_to_path_kind(prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+  if (msg instanceof ParentRemovedFrom) {
+    let next = new Model4(new None, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentRemovedTo) {
+    let next = new Model4(prev.from, new None, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetFrom) {
+    let value = msg.value;
+    let next = new Model4(new Some(value), prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetTo) {
+    let value = msg.value;
+    let next = new Model4(prev.from, new Some(value), prev.kind, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, prev_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetType) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, value, prev.bezier_from_position, prev.bezier_to_position, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierFromPosition) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, new Some(value), prev.bezier_to_position, prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else if (msg instanceof ParentSetBezierToPosition) {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, new Some(value), prev.step_mid_ratio);
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  } else {
+    let value = msg.value;
+    let next = new Model4(prev.from, prev.to, prev.kind, prev.bezier_from_position, prev.bezier_to_position, new Some(value));
+    let next_path_kind = string_to_path_kind(next.kind, next.bezier_from_position, next.bezier_to_position, next.step_mid_ratio);
+    let effect = emit_change2(prev.from, prev.to, next.from, next.to, next_path_kind);
+    return [next, effect];
+  }
+}
+function init6(_) {
+  let model = new Model4(new None, new None, "bezier-from-positions", new None, new None, new None);
+  let effect = none();
+  return [model, effect];
+}
 function register4() {
   return make_component(component(init6, update7, view4, options4()), tag5);
+}
+function on_disconnect(handler2) {
+  return on("clique:disconnect", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
+    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
+      return success(handler2(from3, to));
+    });
+  }));
+}
+function on_reconnect(handler2) {
+  return on("clique:reconnect", subfield(toList(["detail", "old"]), field("from", decoder2(), (from3) => {
+    return field("to", decoder2(), (to) => {
+      return success([from3, to]);
+    });
+  }), (old) => {
+    return subfield(toList(["detail", "new"]), field("from", decoder2(), (from3) => {
+      return field("to", decoder2(), (to) => {
+        return success([from3, to]);
+      });
+    }), (new$9) => {
+      return subfield(toList(["detail", "type"]), path_kind_decoder(), (kind) => {
+        return success(handler2(old, new$9, kind));
+      });
+    });
+  }));
+}
+function on_connect(handler2) {
+  return on("clique:connect", subfield(toList(["detail", "from"]), decoder2(), (from3) => {
+    return subfield(toList(["detail", "to"]), decoder2(), (to) => {
+      return subfield(toList(["detail", "type"]), path_kind_decoder(), (kind) => {
+        return success(handler2(from3, to, kind));
+      });
+    });
+  }));
 }
 
 // build/dev/javascript/clique/clique/internal/mutable_dict.ffi.mjs
@@ -7647,10 +7861,8 @@ var remove3 = (dict4, key) => {
 // build/dev/javascript/clique/clique/internal/mutable_dict.mjs
 function from_list3(entries) {
   return fold2(entries, make2(), (dict4, _use1) => {
-    let key;
-    let value;
-    key = _use1[0];
-    value = _use1[1];
+    let key = _use1[0];
+    let value = _use1[1];
     return insert5(dict4, key, value);
   });
 }
@@ -7668,10 +7880,8 @@ function upsert(dict4, key, f) {
 }
 function fold4(dict4, init7, f) {
   return fold2(to_list(dict4), init7, (acc, _use1) => {
-    let key;
-    let value;
-    key = _use1[0];
-    value = _use1[1];
+    let key = _use1[0];
+    let value = _use1[1];
     return f(acc, key, value);
   });
 }
@@ -7709,6 +7919,9 @@ class NodesChanged extends CustomType {
   }
 }
 var tag6 = "clique-node-group";
+function options5() {
+  return toList([]);
+}
 function on_changes(handler2) {
   return on("clique:changes", subfield(toList(["detail", "changes"]), dict2(string2, field("dx", float2, (dx) => {
     return field("dy", float2, (dy) => {
@@ -7718,27 +7931,15 @@ function on_changes(handler2) {
     return success(handler2(changes));
   }));
 }
-function emit_changes(changes) {
-  return emit2("clique:changes", object2(toList([
-    [
-      "changes",
-      to_json7(changes, identity2, (change) => {
-        let dx;
-        let dy;
-        dx = change[0];
-        dy = change[1];
-        return object2(toList([["dx", float3(dx)], ["dy", float3(dy)]]));
-      })
-    ]
-  ])));
-}
-function init7(_) {
-  let model = new Model5(false, make2());
-  let effect = none();
-  return [model, effect];
-}
-function options5() {
-  return toList([]);
+function view5(_) {
+  return slot(toList([
+    on_change((var0, var1, var2) => {
+      return new NodeChanged(var0, var1, var2);
+    }),
+    on_changes((var0) => {
+      return new NodesChanged(var0);
+    })
+  ]), toList([]));
 }
 function queue_microtask2() {
   return from2((dispatch2) => {
@@ -7746,6 +7947,18 @@ function queue_microtask2() {
       return dispatch2(new MicrotaskTick);
     });
   });
+}
+function emit_changes(changes) {
+  return emit2("clique:changes", object2(toList([
+    [
+      "changes",
+      to_json7(changes, identity2, (change) => {
+        let dx = change[0];
+        let dy = change[1];
+        return object2(toList([["dx", float3(dx)], ["dy", float3(dy)]]));
+      })
+    ]
+  ])));
 }
 function update8(model, msg) {
   if (msg instanceof MicrotaskTick) {
@@ -7782,134 +7995,16 @@ function update8(model, msg) {
     return [model$1, effect];
   }
 }
-function view5(_) {
-  return slot(toList([
-    on_change((var0, var1, var2) => {
-      return new NodeChanged(var0, var1, var2);
-    }),
-    on_changes((var0) => {
-      return new NodesChanged(var0);
-    })
-  ]), toList([]));
+function init7(_) {
+  let model = new Model5(false, make2());
+  let effect = none();
+  return [model, effect];
 }
 function register5() {
   return make_component(component(init7, update8, view5, options5()), tag6);
 }
 function root2(attributes, children2) {
   return element2(tag6, attributes, children2);
-}
-
-// build/dev/javascript/clique/clique/internal/path.ffi.mjs
-var sqrt = Math.sqrt;
-
-// build/dev/javascript/clique/clique/internal/path.mjs
-function bezier_control_point_offset(distance, curvature) {
-  let $ = distance >= 0;
-  if ($) {
-    return 0.5 * distance;
-  } else {
-    return curvature * 25 * sqrt(0 - distance);
-  }
-}
-function bezier_control_point(from_x, from_y, from_position, to_x, to_y, curvature) {
-  if (from_position instanceof Top) {
-    return [
-      from_x,
-      from_y - bezier_control_point_offset(from_y - to_y, curvature)
-    ];
-  } else if (from_position instanceof TopLeft) {
-    return [
-      from_x,
-      from_y - bezier_control_point_offset(from_y - to_y, curvature)
-    ];
-  } else if (from_position instanceof TopRight) {
-    return [
-      from_x,
-      from_y - bezier_control_point_offset(from_y - to_y, curvature)
-    ];
-  } else if (from_position instanceof Right) {
-    return [
-      from_x + bezier_control_point_offset(to_x - from_x, curvature),
-      from_y
-    ];
-  } else if (from_position instanceof Bottom) {
-    return [
-      from_x,
-      from_y + bezier_control_point_offset(to_y - from_y, curvature)
-    ];
-  } else if (from_position instanceof BottomLeft) {
-    return [
-      from_x,
-      from_y + bezier_control_point_offset(to_y - from_y, curvature)
-    ];
-  } else if (from_position instanceof BottomRight) {
-    return [
-      from_x,
-      from_y + bezier_control_point_offset(to_y - from_y, curvature)
-    ];
-  } else {
-    return [
-      from_x - bezier_control_point_offset(from_x - to_x, curvature),
-      from_y
-    ];
-  }
-}
-function format(value) {
-  let _pipe = value;
-  let _pipe$1 = to_precision(_pipe, 2);
-  return float_to_string(_pipe$1);
-}
-function straight(from_x, from_y, to_x, to_y) {
-  let path2 = "M" + format(from_x) + "," + format(from_y) + " L" + format(to_x) + "," + format(to_y);
-  let label_x = to_precision((from_x + to_x) / 2, 2);
-  let label_y = to_precision((from_y + to_y) / 2, 2);
-  return [path2, label_x, label_y];
-}
-function bezier(from_x, from_y, from_position, to_x, to_y, to_position) {
-  let curvature = 0.25;
-  let $ = bezier_control_point(from_x, from_y, from_position, to_x, to_y, curvature);
-  let cx1;
-  let cy1;
-  cx1 = $[0];
-  cy1 = $[1];
-  let $1 = bezier_control_point(to_x, to_y, to_position, from_x, from_y, curvature);
-  let cx2;
-  let cy2;
-  cx2 = $1[0];
-  cy2 = $1[1];
-  let path2 = "M" + format(from_x) + "," + format(from_y) + "C" + format(cx1) + "," + format(cy1) + " " + format(cx2) + "," + format(cy2) + " " + format(to_x) + "," + format(to_y);
-  let label_x = from_x * 0.125 + cx1 * 0.375 + cx2 * 0.375 + to_x * 0.125;
-  let label_y = from_y * 0.125 + cy1 * 0.375 + cy2 * 0.375 + to_y * 0.125;
-  return [
-    path2,
-    to_precision(label_x, 2),
-    to_precision(label_y, 2)
-  ];
-}
-function step(from_x, from_y, to_x, to_y) {
-  let mid_x = to_precision(from_x + (to_x - from_x) / 2, 2);
-  let mid_y = to_precision(from_y + (to_y - from_y) / 2, 2);
-  let dx1 = mid_x - from_x;
-  let dy1 = 0;
-  let dx2 = 0;
-  let dy2 = to_y - from_y;
-  let dx3 = to_x - mid_x;
-  let dy3 = 0;
-  let path2 = "M" + format(from_x) + "," + format(from_y) + "l" + format(dx1) + "," + format(dy1) + "l" + format(dx2) + "," + format(dy2) + "l" + format(dx3) + "," + format(dy3);
-  let label_x = mid_x;
-  let label_y = mid_y;
-  return [path2, label_x, label_y];
-}
-function default$(kind, from3, to) {
-  if (kind === "bezier") {
-    return bezier(from3[0], from3[1], new Right, to[0], to[1], new Left);
-  } else if (kind === "step") {
-    return step(from3[0], from3[1], to[0], to[1]);
-  } else if (kind === "linear") {
-    return straight(from3[0], from3[1], to[0], to[1]);
-  } else {
-    return straight(from3[0], from3[1], to[0], to[1]);
-  }
 }
 
 // build/dev/javascript/clique/clique/internal/edge_lookup.mjs
@@ -7947,12 +8042,9 @@ function get4(lookup2, source, target) {
 }
 function insert6(lookup2, source, from3, target, to, kind) {
   let $ = default$(kind, from3, to);
-  let path2;
-  let cx;
-  let cy;
-  path2 = $[0];
-  cx = $[1];
-  cy = $[2];
+  let path2 = $[0];
+  let cx = $[1];
+  let cy = $[2];
   let data3 = new EdgeData(source, from3, target, to, kind, path2, cx, cy);
   let key = source.node + ":" + source.name + "->" + target.node + ":" + target.name;
   let edges = insert5(lookup2.edges, key, data3);
@@ -8078,15 +8170,11 @@ function update_node(lookup2, node, offset) {
   let $ = guard(!has_key2(lookup2.keys, node), [lookup2.edges, new$2()], () => {
     let inner = get3(lookup2.keys, node);
     return fold4(inner, [lookup2.edges, new$2()], (_use0, _, keys3) => {
-      let edges2;
-      let seen;
-      edges2 = _use0[0];
-      seen = _use0[1];
+      let edges2 = _use0[0];
+      let seen = _use0[1];
       return fold3(keys3, [edges2, seen], (_use02, key) => {
-        let edges$1;
-        let seen$1;
-        edges$1 = _use02[0];
-        seen$1 = _use02[1];
+        let edges$1 = _use02[0];
+        let seen$1 = _use02[1];
         return guard(contains2(seen$1, key), [edges$1, seen$1], () => {
           let $1 = has_key2(edges$1, key);
           if ($1) {
@@ -8114,12 +8202,9 @@ function update_node(lookup2, node, offset) {
             }
             let to = _block$1;
             let $4 = default$(edge.kind, from3, to);
-            let path2;
-            let cx;
-            let cy;
-            path2 = $4[0];
-            cx = $4[1];
-            cy = $4[2];
+            let path2 = $4[0];
+            let cx = $4[1];
+            let cy = $4[2];
             let updated_edge = new EdgeData(edge.source, from3, edge.target, to, edge.kind, path2, cx, cy);
             return [
               insert5(edges$1, key, updated_edge),
@@ -8132,8 +8217,7 @@ function update_node(lookup2, node, offset) {
       });
     });
   });
-  let edges;
-  edges = $[0];
+  let edges = $[0];
   return new EdgeLookup(edges, lookup2.keys);
 }
 function update9(lookup2, handle2, position) {
@@ -8161,12 +8245,9 @@ function update9(lookup2, handle2, position) {
           }
           let to = _block$1;
           let $2 = default$(edge.kind, from3, to);
-          let path2;
-          let cx;
-          let cy;
-          path2 = $2[0];
-          cx = $2[1];
-          cy = $2[2];
+          let path2 = $2[0];
+          let cx = $2[1];
+          let cy = $2[2];
           let updated_edge = new EdgeData(edge.source, from3, edge.target, to, edge.kind, path2, cx, cy);
           return insert5(edges2, key, updated_edge);
         });
@@ -8449,38 +8530,6 @@ class ViewportReszied extends CustomType {
   }
 }
 var tag7 = "clique-viewport";
-function emit_resize(bounds) {
-  return emit2("clique:resize", to_json4(bounds));
-}
-function emit_connection_cancel(from3, x, y) {
-  return emit2("clique:connection-cancel", object2(toList([
-    [
-      "from",
-      object2(toList([
-        ["node", string3(from3[0])],
-        ["name", string3(from3[1])]
-      ]))
-    ],
-    ["x", float3(x)],
-    ["y", float3(y)]
-  ])));
-}
-function emit_pan(transform) {
-  return emit2("clique:pan", to_json5(transform));
-}
-function emit_zoom(transform) {
-  return emit2("clique:zoom", to_json5(transform));
-}
-function add_resize_observer2() {
-  return before_paint((dispatch2, shadow_root) => {
-    let observer = add_resize_observer(shadow_root, (bounds) => {
-      return dispatch2(new ViewportReszied(bounds));
-    }, (changes) => {
-      return dispatch2(new NodesResized(changes));
-    });
-    return dispatch2(new NodeResizeObserverStarted(observer));
-  });
-}
 function options6() {
   return toList([
     adopt_styles(false),
@@ -8531,438 +8580,27 @@ function options6() {
     })())
   ]);
 }
-function set_transform4(transform) {
-  return before_paint((_, shadow_root) => {
-    let matrix = to_css_matrix(transform.value);
-    return set_transform3(shadow_root, matrix);
-  });
-}
-function init8(_) {
-  let model = new Model6(new$8(init2()), new None, make2(), new$9(), new Settled, new None, init(), new None);
-  let effect = batch(toList([
-    provide_transform(model.transform.value),
-    provide_scale(model.transform.value[2]),
-    provide_connection(new None),
-    set_transform4(model.transform),
-    add_resize_observer2()
-  ]));
-  return [model, effect];
-}
-function add_window_mousemove_listener4() {
-  return from2((dispatch2) => {
-    let decoder4 = (msg) => {
-      return field("clientX", float2, (client_x) => {
-        return field("clientY", float2, (client_y) => {
-          return success(msg(client_x, client_y));
-        });
-      });
-    };
-    return add_window_mousemove_listener3((event4) => {
-      let $ = run(event4, decoder4((var0, var1) => {
-        return new UserStoppedPanning(var0, var1);
-      }));
-      if ($ instanceof Ok) {
-        let msg = $[0];
-        return dispatch2(msg);
-      } else {
-        return;
-      }
-    }, (event4) => {
-      let $ = run(event4, decoder4((var0, var1) => {
-        return new UserPannedViewport(var0, var1);
-      }));
-      if ($ instanceof Ok) {
-        let msg = $[0];
-        return dispatch2(msg);
-      } else {
-        return;
-      }
-    });
-  });
-}
-function observe_node2(observer, element4) {
-  return from2((_) => {
-    return observe_node(observer, element4);
-  });
-}
-function update10(model, msg) {
-  if (msg instanceof EdgeDisconnected) {
-    let from3 = msg.from;
-    let to = msg.to;
-    let edges = delete$3(model.edges, from3, to);
-    let model$1 = new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof EdgeConnected) {
-    let source = msg.from;
-    let target = msg.to;
-    let kind = msg.kind;
-    let from_key = source.node + " " + source.name;
-    let to_key = target.node + " " + target.name;
-    return guard(has_key2(model.handles, from_key), [model, none()], () => {
-      return guard(has_key2(model.handles, to_key), [model, none()], () => {
-        let from3 = get3(model.handles, from_key);
-        let to = get3(model.handles, to_key);
-        let edges = insert6(model.edges, source, from3, target, to, kind);
-        let model$1 = new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected);
-        let effect = none();
-        return [model$1, effect];
-      });
-    });
-  } else if (msg instanceof EdgeReconnected) {
-    let prev = msg.prev;
-    let next = msg.next;
-    let kind = msg.kind;
-    let edges = delete$3(model.edges, prev[0], prev[1]);
-    let from_key = next[0].node + " " + next[0].name;
-    let to_key = next[1].node + " " + next[1].name;
-    return guard(has_key2(model.handles, from_key), [
-      new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected),
-      none()
-    ], () => {
-      return guard(has_key2(model.handles, to_key), [
-        new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected),
-        none()
-      ], () => {
-        let from3 = get3(model.handles, from_key);
-        let to = get3(model.handles, to_key);
-        let edges$1 = insert6(edges, next[0], from3, next[1], to, kind);
-        let model$1 = new Model6(model.transform, model.observer, model.handles, edges$1, model.panning, model.connection, model.bounds, model.selected);
-        let effect = none();
-        return [model$1, effect];
-      });
-    });
-  } else if (msg instanceof EdgesMounted) {
-    let edges = msg.edges;
-    let edges$1 = fold2(edges, new$9(), (edges2, edge) => {
-      let source = edge[0];
-      let target = edge[1];
-      let $ = get4(model.edges, source, target);
-      if ($ instanceof Ok) {
-        let existing = $[0];
-        return insert_edge(edges2, source, target, existing);
-      } else {
-        let from_key = edge[0].node + " " + edge[0].name;
-        let to_key = edge[1].node + " " + edge[1].name;
-        let has_from = has_key2(model.handles, from_key);
-        let has_to = has_key2(model.handles, to_key);
-        if (has_from) {
-          if (has_to) {
-            return insert6(edges2, edge[0], get3(model.handles, from_key), edge[1], get3(model.handles, to_key), edge[2]);
-          } else {
-            return insert6(edges2, edge[0], get3(model.handles, from_key), edge[1], [0, 0], edge[2]);
-          }
-        } else if (has_to) {
-          return insert6(edges2, edge[0], [0, 0], edge[1], get3(model.handles, to_key), edge[2]);
-        } else {
-          return insert6(edges2, edge[0], [0, 0], edge[1], [0, 0], edge[2]);
-        }
-      }
-    });
-    let model$1 = new Model6(model.transform, model.observer, model.handles, edges$1, model.panning, model.connection, model.bounds, model.selected);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof InertiaSimulationTicked2) {
-    let $ = tick2(model.panning, new InertiaSimulationTicked2);
-    let panning;
-    let vx;
-    let vy;
-    let inertia_effect;
-    panning = $[0];
-    vx = $[1];
-    vy = $[2];
-    inertia_effect = $[3];
-    let nx = model.transform.value[0] + vx;
-    let ny = model.transform.value[1] + vy;
-    let new_transform = new$6(nx, ny, model.transform.value[2]);
-    let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected);
-    let _block;
-    let $1 = model$1.transform.state;
-    if ($1 instanceof Unchanged) {
-      _block = batch(toList([
-        inertia_effect,
-        set_transform4(model$1.transform),
-        provide_transform(model$1.transform.value),
-        emit_pan(new_transform)
-      ]));
-    } else if ($1 instanceof Touched) {
-      _block = batch(toList([
-        inertia_effect,
-        set_transform4(model$1.transform),
-        provide_transform(model$1.transform.value),
-        emit_pan(new_transform)
-      ]));
-    } else {
-      _block = batch(toList([inertia_effect, emit_pan(new_transform)]));
-    }
-    let effect = _block;
-    return [model$1, effect];
-  } else if (msg instanceof NodeMounted) {
-    let element$1 = msg.element;
-    let $ = model.observer;
-    if ($ instanceof Some) {
-      let observer = $[0];
-      return [model, observe_node2(observer, element$1)];
-    } else {
-      return [model, none()];
-    }
-  } else if (msg instanceof NodesMoved) {
-    let changes = msg[0];
-    let init$1 = [model.handles, model.edges];
-    let $ = fold(changes, init$1, (acc, node, change) => {
-      let dx;
-      let dy;
-      dx = change[0];
-      dy = change[1];
-      let handles2 = fold4(model.handles, acc[0], (handles3, key, position) => {
-        let $1 = starts_with(key, node + " ");
-        if ($1) {
-          return insert5(handles3, key, [position[0] + dx, position[1] + dy]);
-        } else {
-          return insert5(handles3, key, position);
-        }
-      });
-      let edges2 = update_node(acc[1], node, [dx, dy]);
-      return [handles2, edges2];
-    });
-    let handles;
-    let edges;
-    handles = $[0];
-    edges = $[1];
-    let model$1 = new Model6(model.transform, model.observer, handles, edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof NodeResizeObserverStarted) {
-    let observer = msg.observer;
-    let model$1 = new Model6(model.transform, new Some(observer), model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof NodesResized) {
-    let changes = msg.changes;
-    let $ = fold2(changes, [model.handles, model.edges], (acc, change) => {
-      let position = [
-        divideFloat(change[2] - model.transform.value[0], model.transform.value[2]),
-        divideFloat(change[3] - model.transform.value[1], model.transform.value[2])
-      ];
-      let handle2 = new Handle(change[0], change[1]);
-      let handles2 = insert5(acc[0], change[0] + " " + change[1], position);
-      let edges2 = update9(acc[1], handle2, position);
-      return [handles2, edges2];
-    });
-    let handles;
-    let edges;
-    handles = $[0];
-    edges = $[1];
-    let model$1 = new Model6(model.transform, model.observer, handles, edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof ParentSetInitialTransform) {
-    let new_transform = msg.transform;
-    let transform$1 = uncontrolled(model.transform, new_transform);
-    let model$1 = new Model6(transform$1, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = batch(toList([
-      set_transform4(model$1.transform),
-      provide_transform(model$1.transform.value),
-      provide_scale(model$1.transform.value[2])
+function view_connection_line(handles, handle2, to) {
+  let key = handle2.node + " " + handle2.name;
+  let $ = has_key2(handles, key);
+  if ($) {
+    let from3 = get3(handles, key);
+    let $1 = bezier_from_directions(from3[0], from3[1], new Right, to[0], to[1], new Left);
+    let path2 = $1[0];
+    return svg(toList([id("connection-line")]), toList([
+      path(toList([
+        attribute2("d", path2),
+        attribute2("fill", "none"),
+        attribute2("stroke", "#000"),
+        attribute2("stroke-width", "2")
+      ]))
     ]));
-    return [model$1, effect];
-  } else if (msg instanceof ParentUpdatedTransform) {
-    let new_transform = msg.transform;
-    let transform$1 = controlled(new_transform);
-    let model$1 = new Model6(transform$1, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
-    let effect = batch(toList([
-      set_transform4(model$1.transform),
-      provide_transform(model$1.transform.value),
-      provide_scale(model$1.transform.value[2])
-    ]));
-    return [model$1, effect];
-  } else if (msg instanceof UserCompletedConnection2) {
-    let $ = model.connection;
-    if ($ instanceof Some) {
-      return [
-        new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new None, model.bounds, model.selected),
-        batch(toList([
-          provide_connection(new None),
-          remove_pseudo_state2("connecting")
-        ]))
-      ];
-    } else {
-      return [model, none()];
-    }
-  } else if (msg instanceof UserPannedViewport) {
-    let x = msg.x;
-    let y = msg.y;
-    let $ = model.connection;
-    if ($ instanceof Some) {
-      let connection = $[0][0];
-      let world_x = divideFloat(x - model.bounds[0] - model.transform.value[0], model.transform.value[2]);
-      let world_y = divideFloat(y - model.bounds[1] - model.transform.value[1], model.transform.value[2]);
-      let position = [world_x, world_y];
-      let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new Some([connection, position]), model.bounds, model.selected);
-      let effect = none();
-      return [model$1, effect];
-    } else {
-      let $1 = update3(model.panning, x, y);
-      let panning;
-      let dx;
-      let dy;
-      panning = $1[0];
-      dx = $1[1];
-      dy = $1[2];
-      return guard(dx === 0 && dy === 0, [
-        new Model6(model.transform, model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected),
-        none()
-      ], () => {
-        let nx = model.transform.value[0] + dx;
-        let ny = model.transform.value[1] + dy;
-        let new_transform = [nx, ny, model.transform.value[2]];
-        let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected);
-        let _block;
-        let $2 = model$1.transform.state;
-        if ($2 instanceof Unchanged) {
-          _block = batch(toList([
-            set_transform4(model$1.transform),
-            provide_transform(model$1.transform.value),
-            emit_pan(new_transform)
-          ]));
-        } else if ($2 instanceof Touched) {
-          _block = batch(toList([
-            set_transform4(model$1.transform),
-            provide_transform(model$1.transform.value),
-            emit_pan(new_transform)
-          ]));
-        } else {
-          _block = emit_pan(new_transform);
-        }
-        let effect = _block;
-        return [model$1, effect];
-      });
-    }
-  } else if (msg instanceof UserSelectedEdge) {
-    let id2 = msg.id;
-    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, new Some(new Edge(id2)));
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof UserSelectedNode2) {
-    let id2 = msg.id;
-    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, new Some(new Node(id2)));
-    let effect = none();
-    return [model$1, effect];
-  } else if (msg instanceof UserStartedConnection2) {
-    let source = msg.source;
-    let key = source.node + " " + source.name;
-    let $ = has_key2(model.handles, key);
-    if ($) {
-      let from3 = get3(model.handles, key);
-      let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new Some([source, from3]), model.bounds, model.selected);
-      let effect = batch(toList([
-        provide_connection(new Some([source.node, source.name])),
-        set_pseudo_state2("connecting"),
-        add_window_mousemove_listener4()
-      ]));
-      return [model$1, effect];
-    } else {
-      return [model, none()];
-    }
-  } else if (msg instanceof UserStartedPanning) {
-    let x = msg.x;
-    let y = msg.y;
-    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, start5(x, y), model.connection, model.bounds, model.selected);
-    let effect = batch(toList([
-      add_window_mousemove_listener4(),
-      set_pseudo_state2("dragging")
-    ]));
-    return [model$1, effect];
-  } else if (msg instanceof UserStoppedPanning) {
-    let x = msg.x;
-    let y = msg.y;
-    let $ = stop(model.panning, new InertiaSimulationTicked2);
-    let panning;
-    let effect;
-    panning = $[0];
-    effect = $[1];
-    let world_x = divideFloat(x - model.bounds[0] - model.transform.value[0], model.transform.value[2]);
-    let world_y = divideFloat(y - model.bounds[1] - model.transform.value[1], model.transform.value[2]);
-    let _block;
-    let $1 = model.connection;
-    if ($1 instanceof Some) {
-      let from3 = $1[0];
-      _block = batch(toList([
-        emit_connection_cancel([from3[0].node, from3[0].name], world_x, world_y),
-        remove_pseudo_state2("connecting"),
-        provide_connection(new None)
-      ]));
-    } else {
-      _block = batch(toList([effect, remove_pseudo_state2("dragging")]));
-    }
-    let effect$1 = _block;
-    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, panning, new None, model.bounds, model.selected);
-    return [model$1, effect$1];
-  } else if (msg instanceof UserZoomedViewport) {
-    let client_x = msg.client_x;
-    let client_y = msg.client_y;
-    let delta = msg.delta;
-    let x = client_x - model.bounds[0];
-    let y = client_y - model.bounds[1];
-    let _block;
-    let $ = delta > 0;
-    if ($) {
-      _block = 1 + delta * 0.01;
-    } else {
-      _block = divideFloat(1, 1 + absolute_value(delta) * 0.01);
-    }
-    let zoom_factor = _block;
-    let min_scale = 0.5;
-    let max_scale = 2;
-    let new_scale = model.transform.value[2] * zoom_factor;
-    let _block$1;
-    let s = new_scale;
-    if (s < min_scale) {
-      _block$1 = min_scale;
-    } else {
-      let s2 = new_scale;
-      if (s2 > max_scale) {
-        _block$1 = max_scale;
-      } else {
-        _block$1 = new_scale;
-      }
-    }
-    let clamped_scale = _block$1;
-    return guard(clamped_scale === model.transform.value[2], [model, none()], () => {
-      let world_x = divideFloat(x - model.transform.value[0], model.transform.value[2]);
-      let world_y = divideFloat(y - model.transform.value[1], model.transform.value[2]);
-      let nx = x - world_x * clamped_scale;
-      let ny = y - world_y * clamped_scale;
-      let new_transform = new$6(nx, ny, clamped_scale);
-      let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
-      let _block$2;
-      let $1 = model$1.transform.state;
-      if ($1 instanceof Unchanged) {
-        _block$2 = batch(toList([
-          provide_scale(model$1.transform.value[2]),
-          set_transform4(model$1.transform),
-          provide_transform(model$1.transform.value),
-          emit_zoom(new_transform)
-        ]));
-      } else if ($1 instanceof Touched) {
-        _block$2 = batch(toList([
-          provide_scale(model$1.transform.value[2]),
-          set_transform4(model$1.transform),
-          provide_transform(model$1.transform.value),
-          emit_zoom(new_transform)
-        ]));
-      } else {
-        _block$2 = emit_zoom(new_transform);
-      }
-      let effect = _block$2;
-      return [model$1, effect];
-    });
   } else {
-    let bounds = msg.bounds;
-    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, bounds, model.selected);
-    let effect = emit_resize(bounds);
-    return [model$1, effect];
+    return none2();
   }
+}
+function view_viewport(children2) {
+  return div(toList([id("viewport")]), children2);
 }
 function view_container(children2) {
   let handle_mousedown = field("target", element_decoder(), (target) => {
@@ -9003,29 +8641,6 @@ function view_container(children2) {
     style("touch-action", "none")
   ]), children2);
 }
-function view_viewport(children2) {
-  return div(toList([id("viewport")]), children2);
-}
-function view_connection_line(handles, handle2, to) {
-  let key = handle2.node + " " + handle2.name;
-  let $ = has_key2(handles, key);
-  if ($) {
-    let from3 = get3(handles, key);
-    let $1 = bezier(from3[0], from3[1], new Right, to[0], to[1], new Left);
-    let path2;
-    path2 = $1[0];
-    return svg(toList([id("connection-line")]), toList([
-      path(toList([
-        attribute2("d", path2),
-        attribute2("fill", "none"),
-        attribute2("stroke", "#000"),
-        attribute2("stroke-width", "2")
-      ]))
-    ]));
-  } else {
-    return none2();
-  }
-}
 function view6(model) {
   let handle_slotchange = field("target", element_decoder(), (target) => {
     let assigned_elements2 = assigned_elements(target);
@@ -9034,8 +8649,24 @@ function view6(model) {
         return try$(attribute3(element4, "to"), (to) => {
           let _block;
           let _pipe = attribute3(element4, "type");
-          _block = unwrap(_pipe, "bezier");
-          let kind = _block;
+          _block = unwrap2(_pipe, "bezier-from-positions");
+          let kind_string = _block;
+          let _block$1;
+          let _pipe$1 = attribute3(element4, "bezier-from-position");
+          let _pipe$2 = try$(_pipe$1, from_string);
+          _block$1 = from_result(_pipe$2);
+          let opt_bezier_from_pos = _block$1;
+          let _block$2;
+          let _pipe$3 = attribute3(element4, "bezier-to-position");
+          let _pipe$4 = try$(_pipe$3, from_string);
+          _block$2 = from_result(_pipe$4);
+          let opt_bezier_to_pos = _block$2;
+          let _block$3;
+          let _pipe$5 = attribute3(element4, "step-mid-ratio");
+          let _pipe$6 = try$(_pipe$5, parse_float);
+          _block$3 = from_result(_pipe$6);
+          let opt_step_mid_ratio = _block$3;
+          let kind = string_to_path_kind(kind_string, opt_bezier_from_pos, opt_bezier_to_pos, opt_step_mid_ratio);
           let $2 = split2(from3, " ");
           let $1 = split2(to, " ");
           if ($2 instanceof Empty) {
@@ -9105,10 +8736,8 @@ function view6(model) {
     ], acc[0]);
     return [positions2, edges2];
   });
-  let positions;
-  let edges;
-  positions = $[0];
-  edges = $[1];
+  let positions = $[0];
+  let edges = $[1];
   return fragment2(toList([
     style2(toList([]), `
       :host {
@@ -9230,6 +8859,458 @@ function view6(model) {
       named_slot("overlay", toList([]), toList([]))
     ]))
   ]));
+}
+function emit_resize(bounds) {
+  return emit2("clique:resize", to_json4(bounds));
+}
+function emit_zoom(transform) {
+  return emit2("clique:zoom", to_json5(transform));
+}
+function set_transform4(transform) {
+  return before_paint((_, shadow_root) => {
+    let matrix = to_css_matrix(transform.value);
+    return set_transform3(shadow_root, matrix);
+  });
+}
+function emit_pan(transform) {
+  return emit2("clique:pan", to_json5(transform));
+}
+function emit_connection_cancel(from3, x, y) {
+  return emit2("clique:connection-cancel", object2(toList([
+    [
+      "from",
+      object2(toList([
+        ["node", string3(from3[0])],
+        ["name", string3(from3[1])]
+      ]))
+    ],
+    ["x", float3(x)],
+    ["y", float3(y)]
+  ])));
+}
+function add_window_mousemove_listener4() {
+  return from2((dispatch2) => {
+    let decoder4 = (msg) => {
+      return field("clientX", float2, (client_x) => {
+        return field("clientY", float2, (client_y) => {
+          return success(msg(client_x, client_y));
+        });
+      });
+    };
+    return add_window_mousemove_listener3((event4) => {
+      let $ = run(event4, decoder4((var0, var1) => {
+        return new UserStoppedPanning(var0, var1);
+      }));
+      if ($ instanceof Ok) {
+        let msg = $[0];
+        return dispatch2(msg);
+      } else {
+        return;
+      }
+    }, (event4) => {
+      let $ = run(event4, decoder4((var0, var1) => {
+        return new UserPannedViewport(var0, var1);
+      }));
+      if ($ instanceof Ok) {
+        let msg = $[0];
+        return dispatch2(msg);
+      } else {
+        return;
+      }
+    });
+  });
+}
+function observe_node2(observer, element4) {
+  return from2((_) => {
+    return observe_node(observer, element4);
+  });
+}
+function update10(model, msg) {
+  if (msg instanceof EdgeDisconnected) {
+    let from3 = msg.from;
+    let to = msg.to;
+    let edges = delete$3(model.edges, from3, to);
+    let model$1 = new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof EdgeConnected) {
+    let source = msg.from;
+    let target = msg.to;
+    let kind = msg.kind;
+    let from_key = source.node + " " + source.name;
+    let to_key = target.node + " " + target.name;
+    return guard(has_key2(model.handles, from_key), [model, none()], () => {
+      return guard(has_key2(model.handles, to_key), [model, none()], () => {
+        let from3 = get3(model.handles, from_key);
+        let to = get3(model.handles, to_key);
+        let edges = insert6(model.edges, source, from3, target, to, kind);
+        let model$1 = new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected);
+        let effect = none();
+        return [model$1, effect];
+      });
+    });
+  } else if (msg instanceof EdgeReconnected) {
+    let prev = msg.prev;
+    let next = msg.next;
+    let kind = msg.kind;
+    let edges = delete$3(model.edges, prev[0], prev[1]);
+    let from_key = next[0].node + " " + next[0].name;
+    let to_key = next[1].node + " " + next[1].name;
+    return guard(has_key2(model.handles, from_key), [
+      new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected),
+      none()
+    ], () => {
+      return guard(has_key2(model.handles, to_key), [
+        new Model6(model.transform, model.observer, model.handles, edges, model.panning, model.connection, model.bounds, model.selected),
+        none()
+      ], () => {
+        let from3 = get3(model.handles, from_key);
+        let to = get3(model.handles, to_key);
+        let edges$1 = insert6(edges, next[0], from3, next[1], to, kind);
+        let model$1 = new Model6(model.transform, model.observer, model.handles, edges$1, model.panning, model.connection, model.bounds, model.selected);
+        let effect = none();
+        return [model$1, effect];
+      });
+    });
+  } else if (msg instanceof EdgesMounted) {
+    let edges = msg.edges;
+    let edges$1 = fold2(edges, new$9(), (edges2, edge) => {
+      let source = edge[0];
+      let target = edge[1];
+      let $ = get4(model.edges, source, target);
+      if ($ instanceof Ok) {
+        let existing = $[0];
+        return insert_edge(edges2, source, target, existing);
+      } else {
+        let from_key = edge[0].node + " " + edge[0].name;
+        let to_key = edge[1].node + " " + edge[1].name;
+        let has_from = has_key2(model.handles, from_key);
+        let has_to = has_key2(model.handles, to_key);
+        if (has_from) {
+          if (has_to) {
+            return insert6(edges2, edge[0], get3(model.handles, from_key), edge[1], get3(model.handles, to_key), edge[2]);
+          } else {
+            return insert6(edges2, edge[0], get3(model.handles, from_key), edge[1], [0, 0], edge[2]);
+          }
+        } else if (has_to) {
+          return insert6(edges2, edge[0], [0, 0], edge[1], get3(model.handles, to_key), edge[2]);
+        } else {
+          return insert6(edges2, edge[0], [0, 0], edge[1], [0, 0], edge[2]);
+        }
+      }
+    });
+    let model$1 = new Model6(model.transform, model.observer, model.handles, edges$1, model.panning, model.connection, model.bounds, model.selected);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof InertiaSimulationTicked2) {
+    let $ = tick2(model.panning, new InertiaSimulationTicked2);
+    let panning = $[0];
+    let vx = $[1];
+    let vy = $[2];
+    let inertia_effect = $[3];
+    let nx = model.transform.value[0] + vx;
+    let ny = model.transform.value[1] + vy;
+    let new_transform = new$6(nx, ny, model.transform.value[2]);
+    let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected);
+    let _block;
+    let $1 = model$1.transform.state;
+    if ($1 instanceof Unchanged) {
+      _block = batch(toList([
+        inertia_effect,
+        set_transform4(model$1.transform),
+        provide_transform(model$1.transform.value),
+        emit_pan(new_transform)
+      ]));
+    } else if ($1 instanceof Touched) {
+      _block = batch(toList([
+        inertia_effect,
+        set_transform4(model$1.transform),
+        provide_transform(model$1.transform.value),
+        emit_pan(new_transform)
+      ]));
+    } else {
+      _block = batch(toList([inertia_effect, emit_pan(new_transform)]));
+    }
+    let effect = _block;
+    return [model$1, effect];
+  } else if (msg instanceof NodeMounted) {
+    let element$1 = msg.element;
+    let $ = model.observer;
+    if ($ instanceof Some) {
+      let observer = $[0];
+      return [model, observe_node2(observer, element$1)];
+    } else {
+      return [model, none()];
+    }
+  } else if (msg instanceof NodesMoved) {
+    let changes = msg[0];
+    let init$1 = [model.handles, model.edges];
+    let $ = fold(changes, init$1, (acc, node, change) => {
+      let dx = change[0];
+      let dy = change[1];
+      let handles2 = fold4(model.handles, acc[0], (handles3, key, position) => {
+        let $1 = starts_with(key, node + " ");
+        if ($1) {
+          return insert5(handles3, key, [position[0] + dx, position[1] + dy]);
+        } else {
+          return insert5(handles3, key, position);
+        }
+      });
+      let edges2 = update_node(acc[1], node, [dx, dy]);
+      return [handles2, edges2];
+    });
+    let handles = $[0];
+    let edges = $[1];
+    let model$1 = new Model6(model.transform, model.observer, handles, edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof NodeResizeObserverStarted) {
+    let observer = msg.observer;
+    let model$1 = new Model6(model.transform, new Some(observer), model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof NodesResized) {
+    let changes = msg.changes;
+    let $ = fold2(changes, [model.handles, model.edges], (acc, change) => {
+      let position = [
+        divideFloat(change[2] - model.transform.value[0], model.transform.value[2]),
+        divideFloat(change[3] - model.transform.value[1], model.transform.value[2])
+      ];
+      let handle2 = new Handle(change[0], change[1]);
+      let handles2 = insert5(acc[0], change[0] + " " + change[1], position);
+      let edges2 = update9(acc[1], handle2, position);
+      return [handles2, edges2];
+    });
+    let handles = $[0];
+    let edges = $[1];
+    let model$1 = new Model6(model.transform, model.observer, handles, edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof ParentSetInitialTransform) {
+    let new_transform = msg.transform;
+    let transform$1 = uncontrolled(model.transform, new_transform);
+    let model$1 = new Model6(transform$1, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = batch(toList([
+      set_transform4(model$1.transform),
+      provide_transform(model$1.transform.value),
+      provide_scale(model$1.transform.value[2])
+    ]));
+    return [model$1, effect];
+  } else if (msg instanceof ParentUpdatedTransform) {
+    let new_transform = msg.transform;
+    let transform$1 = controlled(new_transform);
+    let model$1 = new Model6(transform$1, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
+    let effect = batch(toList([
+      set_transform4(model$1.transform),
+      provide_transform(model$1.transform.value),
+      provide_scale(model$1.transform.value[2])
+    ]));
+    return [model$1, effect];
+  } else if (msg instanceof UserCompletedConnection2) {
+    let $ = model.connection;
+    if ($ instanceof Some) {
+      return [
+        new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new None, model.bounds, model.selected),
+        batch(toList([
+          provide_connection(new None),
+          remove_pseudo_state2("connecting")
+        ]))
+      ];
+    } else {
+      return [model, none()];
+    }
+  } else if (msg instanceof UserPannedViewport) {
+    let x = msg.x;
+    let y = msg.y;
+    let $ = model.connection;
+    if ($ instanceof Some) {
+      let connection = $[0][0];
+      let world_x = divideFloat(x - model.bounds[0] - model.transform.value[0], model.transform.value[2]);
+      let world_y = divideFloat(y - model.bounds[1] - model.transform.value[1], model.transform.value[2]);
+      let position = [world_x, world_y];
+      let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new Some([connection, position]), model.bounds, model.selected);
+      let effect = none();
+      return [model$1, effect];
+    } else {
+      let $1 = update3(model.panning, x, y);
+      let panning = $1[0];
+      let dx = $1[1];
+      let dy = $1[2];
+      return guard(dx === 0 && dy === 0, [
+        new Model6(model.transform, model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected),
+        none()
+      ], () => {
+        let nx = model.transform.value[0] + dx;
+        let ny = model.transform.value[1] + dy;
+        let new_transform = [nx, ny, model.transform.value[2]];
+        let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, panning, model.connection, model.bounds, model.selected);
+        let _block;
+        let $2 = model$1.transform.state;
+        if ($2 instanceof Unchanged) {
+          _block = batch(toList([
+            set_transform4(model$1.transform),
+            provide_transform(model$1.transform.value),
+            emit_pan(new_transform)
+          ]));
+        } else if ($2 instanceof Touched) {
+          _block = batch(toList([
+            set_transform4(model$1.transform),
+            provide_transform(model$1.transform.value),
+            emit_pan(new_transform)
+          ]));
+        } else {
+          _block = emit_pan(new_transform);
+        }
+        let effect = _block;
+        return [model$1, effect];
+      });
+    }
+  } else if (msg instanceof UserSelectedEdge) {
+    let id2 = msg.id;
+    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, new Some(new Edge(id2)));
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof UserSelectedNode2) {
+    let id2 = msg.id;
+    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, new Some(new Node(id2)));
+    let effect = none();
+    return [model$1, effect];
+  } else if (msg instanceof UserStartedConnection2) {
+    let source = msg.source;
+    let key = source.node + " " + source.name;
+    let $ = has_key2(model.handles, key);
+    if ($) {
+      let from3 = get3(model.handles, key);
+      let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, new Some([source, from3]), model.bounds, model.selected);
+      let effect = batch(toList([
+        provide_connection(new Some([source.node, source.name])),
+        set_pseudo_state2("connecting"),
+        add_window_mousemove_listener4()
+      ]));
+      return [model$1, effect];
+    } else {
+      return [model, none()];
+    }
+  } else if (msg instanceof UserStartedPanning) {
+    let x = msg.x;
+    let y = msg.y;
+    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, start5(x, y), model.connection, model.bounds, model.selected);
+    let effect = batch(toList([
+      add_window_mousemove_listener4(),
+      set_pseudo_state2("dragging")
+    ]));
+    return [model$1, effect];
+  } else if (msg instanceof UserStoppedPanning) {
+    let x = msg.x;
+    let y = msg.y;
+    let $ = stop(model.panning, new InertiaSimulationTicked2);
+    let panning = $[0];
+    let effect = $[1];
+    let world_x = divideFloat(x - model.bounds[0] - model.transform.value[0], model.transform.value[2]);
+    let world_y = divideFloat(y - model.bounds[1] - model.transform.value[1], model.transform.value[2]);
+    let _block;
+    let $1 = model.connection;
+    if ($1 instanceof Some) {
+      let from3 = $1[0];
+      _block = batch(toList([
+        emit_connection_cancel([from3[0].node, from3[0].name], world_x, world_y),
+        remove_pseudo_state2("connecting"),
+        provide_connection(new None)
+      ]));
+    } else {
+      _block = batch(toList([effect, remove_pseudo_state2("dragging")]));
+    }
+    let effect$1 = _block;
+    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, panning, new None, model.bounds, model.selected);
+    return [model$1, effect$1];
+  } else if (msg instanceof UserZoomedViewport) {
+    let client_x = msg.client_x;
+    let client_y = msg.client_y;
+    let delta = msg.delta;
+    let x = client_x - model.bounds[0];
+    let y = client_y - model.bounds[1];
+    let _block;
+    let $ = delta > 0;
+    if ($) {
+      _block = 1 + delta * 0.01;
+    } else {
+      _block = divideFloat(1, 1 + absolute_value(delta) * 0.01);
+    }
+    let zoom_factor = _block;
+    let min_scale = 0.5;
+    let max_scale = 2;
+    let new_scale = model.transform.value[2] * zoom_factor;
+    let _block$1;
+    {
+      let s = new_scale;
+      if (s < min_scale) {
+        _block$1 = min_scale;
+      } else {
+        let s2 = new_scale;
+        if (s2 > max_scale) {
+          _block$1 = max_scale;
+        } else {
+          _block$1 = new_scale;
+        }
+      }
+    }
+    let clamped_scale = _block$1;
+    return guard(clamped_scale === model.transform.value[2], [model, none()], () => {
+      let world_x = divideFloat(x - model.transform.value[0], model.transform.value[2]);
+      let world_y = divideFloat(y - model.transform.value[1], model.transform.value[2]);
+      let nx = x - world_x * clamped_scale;
+      let ny = y - world_y * clamped_scale;
+      let new_transform = new$6(nx, ny, clamped_scale);
+      let model$1 = new Model6(update4(model.transform, new_transform), model.observer, model.handles, model.edges, model.panning, model.connection, model.bounds, model.selected);
+      let _block$2;
+      let $1 = model$1.transform.state;
+      if ($1 instanceof Unchanged) {
+        _block$2 = batch(toList([
+          provide_scale(model$1.transform.value[2]),
+          set_transform4(model$1.transform),
+          provide_transform(model$1.transform.value),
+          emit_zoom(new_transform)
+        ]));
+      } else if ($1 instanceof Touched) {
+        _block$2 = batch(toList([
+          provide_scale(model$1.transform.value[2]),
+          set_transform4(model$1.transform),
+          provide_transform(model$1.transform.value),
+          emit_zoom(new_transform)
+        ]));
+      } else {
+        _block$2 = emit_zoom(new_transform);
+      }
+      let effect = _block$2;
+      return [model$1, effect];
+    });
+  } else {
+    let bounds = msg.bounds;
+    let model$1 = new Model6(model.transform, model.observer, model.handles, model.edges, model.panning, model.connection, bounds, model.selected);
+    let effect = emit_resize(bounds);
+    return [model$1, effect];
+  }
+}
+function add_resize_observer2() {
+  return before_paint((dispatch2, shadow_root) => {
+    let observer = add_resize_observer(shadow_root, (bounds) => {
+      return dispatch2(new ViewportReszied(bounds));
+    }, (changes) => {
+      return dispatch2(new NodesResized(changes));
+    });
+    return dispatch2(new NodeResizeObserverStarted(observer));
+  });
+}
+function init8(_) {
+  let model = new Model6(new$8(init2()), new None, make2(), new$9(), new Settled, new None, init(), new None);
+  let effect = batch(toList([
+    provide_transform(model.transform.value),
+    provide_scale(model.transform.value[2]),
+    provide_connection(new None),
+    set_transform4(model.transform),
+    add_resize_observer2()
+  ]));
+  return [model, effect];
 }
 function register6() {
   return make_component(component(init8, update10, view6, options6()), tag7);

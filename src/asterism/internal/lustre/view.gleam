@@ -9,9 +9,11 @@ import clique/background
 import clique/edge
 import clique/handle
 import clique/node
+import clique/position
 import clique/transform
 import gleam/int
 import gleam/list
+import gleam/option
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -56,10 +58,17 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn get_edge_element(edge: graph_edge.Edge(String, Nil)) -> Element(Msg) {
+fn get_edge_element(
+  edge: graph_edge.Edge(String, #(option.Option(Nil), List(#(Int, Int)))),
+) -> Element(Msg) {
   let handle1 = handle.Handle(edge.from, "link")
   let handle2 = handle.Handle(edge.to, "link")
-  clique.edge(handle1, handle2, edge.linear([]), [])
+  clique.edge(
+    handle1,
+    handle2,
+    edge.bezier_from_positions([], position.Top, position.Bottom),
+    [],
+  )
 }
 
 fn get_node_element(
@@ -67,8 +76,8 @@ fn get_node_element(
 ) -> Element(Msg) {
   let attributes = [
     node.position(
-      { node.value.1 * 150 } |> int.to_float,
       { node.value.2 * 150 } |> int.to_float,
+      { node.value.1 * 150 } |> int.to_float,
     ),
     attribute.class("bg-pink-50 rounded border-2 border-pink-500"),
   ]
