@@ -20,6 +20,7 @@ pub fn app() -> lustre.App(Nil, Model, Msg) {
 fn init(_: Nil) -> #(Model, Effect(Msg)) {
   let graph = process_tree.get_process_forest()
   let laid_out_graph = sugiyama.run(graph)
+  let loaded_applications = process_tree.get_applications()
 
-  #(Model(laid_out_graph), effect.none())
+  #(Model(laid_out_graph, loaded_applications), effect.none())
 }

@@ -14,5 +14,6 @@ pub type Model {
       #(process_tree.Process, Int, Int),
       #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
+    loaded_applications: List(String),
   )
 }
