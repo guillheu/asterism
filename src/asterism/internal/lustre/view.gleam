@@ -18,7 +18,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
-const scaling_from_graph_positions = 150
+const scaling_from_graph_positions = 200
 
 pub fn view(model: Model) -> Element(Msg) {
   let transform = transform.init()
@@ -66,8 +66,8 @@ fn get_edge_element(
     #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
   ),
 ) -> Element(Msg) {
-  let handle1 = handle.Handle(edge.from, "link")
-  let handle2 = handle.Handle(edge.to, "link")
+  let handle1 = handle.Handle(edge.from, "link-bottom")
+  let handle2 = handle.Handle(edge.to, "link-top")
   let assert option.Some(#(_, #(control_point_1, control_point_2))) = edge.label
   let #(c1x, c1y) = control_point_1
   let #(c2x, c2y) = control_point_2
@@ -80,7 +80,7 @@ fn get_edge_element(
     { c2x * scaling_from_graph_positions } |> int.to_float,
     { c2y * scaling_from_graph_positions } |> int.to_float,
   )
-  clique.edge(handle1, handle2, edge.bezier_from_control_points([], c1, c2), [])
+  clique.edge(handle1, handle2, edge.linear([]), [])
 }
 
 fn get_node_element(
@@ -95,11 +95,25 @@ fn get_node_element(
   ]
 
   clique.node(node.key, attributes, [
-    html.div([attribute.class("flex relative items-center py-1 px-2 size-16")], [
-      clique.handle("link", [
-        attribute.class("absolute -left-1 top-1/4 bg-black rounded-full size-2"),
-      ]),
-      html.text(node.value.0 |> process_tree.process_to_string),
-    ]),
+    html.div(
+      [
+        attribute.class(
+          "flex relative items-center py-1 px-2 h-20 w-32 break-all",
+        ),
+      ],
+      [
+        clique.handle("link-top", [
+          attribute.class(
+            "absolute top-0 left-1/2 -translate-x-1/2 bg-black rounded-full size-2",
+          ),
+        ]),
+        html.text(node.value.0 |> process_tree.process_to_string),
+        clique.handle("link-bottom", [
+          attribute.class(
+            "absolute bottom-0 left-1/2 -translate-x-1/2 bg-black rounded-full size-2",
+          ),
+        ]),
+      ],
+    ),
   ])
 }
