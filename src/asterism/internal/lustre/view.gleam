@@ -19,7 +19,9 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
-const scaling_from_graph_positions = 200
+const horizontal_scaling_from_graph_positions = 200
+
+const vertical_scaling_from_graph_positions = 250
 
 pub const application_color_palette = [
   "#d845a4",
@@ -218,12 +220,12 @@ fn get_bezier_control_points_from_edge(
   let #(c2x, c2y) = control_point_2
 
   let c1 = #(
-    { c1x * scaling_from_graph_positions } |> int.to_float,
-    { c1y * scaling_from_graph_positions } |> int.to_float,
+    { c1x * horizontal_scaling_from_graph_positions } |> int.to_float,
+    { c1y * vertical_scaling_from_graph_positions } |> int.to_float,
   )
   let c2 = #(
-    { c2x * scaling_from_graph_positions } |> int.to_float,
-    { c2y * scaling_from_graph_positions } |> int.to_float,
+    { c2x * horizontal_scaling_from_graph_positions } |> int.to_float,
+    { c2y * vertical_scaling_from_graph_positions } |> int.to_float,
   )
   #(c1, c2)
 }
@@ -240,21 +242,23 @@ fn get_node_element(
         |> option.unwrap(""),
     )
     |> result.unwrap("")
+  let node_border = case process_tree.get_process_trap_exit(node_process) {
+    True -> "border-8 border-double border-neutral-600"
+    False -> "border-3 border-dashed border-neutral-800"
+  }
   let attributes = [
     node.position(
-      { node.value.2 * scaling_from_graph_positions } |> int.to_float,
-      { node.value.1 * scaling_from_graph_positions } |> int.to_float,
+      { node.value.2 * horizontal_scaling_from_graph_positions } |> int.to_float,
+      { node.value.1 * vertical_scaling_from_graph_positions } |> int.to_float,
     ),
-    attribute.class(
-      "bg-[" <> node_color <> "] rounded border-2 border-neutral-500",
-    ),
+    attribute.class("bg-[" <> node_color <> "] rounded " <> node_border),
   ]
 
   clique.node(node.key, attributes, [
     html.div(
       [
         attribute.class(
-          "flex flex-col relative items-center py-1 px-2 h-20 w-32 break-all",
+          "flex flex-col relative items-center py-1 px-2 w-36 break-all",
         ),
       ],
       [

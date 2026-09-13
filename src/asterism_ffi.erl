@@ -2,6 +2,8 @@
 -export([get_init_process/0, get_children/1, get_linked_processes/1, get_process_name/1, get_process_application/1]).
 -export([get_loaded_applications/0]).
 -export([get_process_label/1]).
+-export([get_process_trap_exit/1]).
+-export([get_processes/0]).
 
 get_init_process() ->
     whereis(init).
@@ -23,6 +25,12 @@ get_process_name(Pid) ->
         {registered_name, Name} -> {some, Name}
     end.
 
+get_process_trap_exit(Pid) ->
+    case process_info(Pid, trap_exit) of
+        undefined         -> {error, nil};
+        {trap_exit, Flag} -> {ok, Flag}
+    end.
+
 get_process_application(Pid) ->
     case application:get_application(Pid) of
         {ok, App} -> {ok, App};
@@ -38,3 +46,6 @@ get_process_label(Pid) ->
         undefined -> {error, nil};
         Label -> {ok, Label}
     end.
+
+get_processes() -> 
+    erlang:processes().

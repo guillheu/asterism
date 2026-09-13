@@ -13,6 +13,7 @@ pub opaque type Process {
     application: Option(String),
     label: Option(String),
     name: String,
+    trap_exit: Bool,
   )
 }
 
@@ -43,6 +44,10 @@ pub fn get_applications() -> List(String) {
 
 pub fn get_process_label(proc: Process) -> Option(String) {
   proc.label
+}
+
+pub fn get_process_trap_exit(proc: Process) -> Bool {
+  proc.trap_exit
 }
 
 fn recurse_walk_process_graph(
@@ -112,7 +117,13 @@ fn process_from_pid(pid: Pid) -> Process {
     Some(name) -> name |> atom.to_string
     None -> pid_to_string(pid)
   }
-  Process(pid, application, label, name)
+  let assert Ok(trap_exit) = get_pid_trap_exit(pid)
+    as {
+      "PID "
+      <> string.inspect(pid)
+      <> " is a dead process.\nHandling this case should really be easy but I was lazy, sorry"
+    }
+  Process(pid, application, label, name, trap_exit)
 }
 
 fn pid_to_string(pid: Pid) -> String {
@@ -136,3 +147,9 @@ fn get_loaded_applications() -> List(#(Atom, String, String))
 
 @external(erlang, "asterism_ffi", "get_process_label")
 fn get_pid_label(proc: Pid) -> Result(any, Nil)
+
+@external(erlang, "asterism_ffi", "get_process_trap_exit")
+fn get_pid_trap_exit(proc: Pid) -> Result(Bool, Nil)
+
+@external(erlang, "asterism_ffi", "get_processes")
+fn get_processes() -> List(Pid)
