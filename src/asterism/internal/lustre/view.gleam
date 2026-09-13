@@ -270,6 +270,11 @@ fn get_node_element(
           |> html.text,
         ]),
         html.text(node.value.0 |> process_tree.process_to_string),
+        html.p([attribute.class("underline")], [
+          html.text(
+            process_tree.get_process_label(node_process) |> option.unwrap(""),
+          ),
+        ]),
         clique.handle("link-bottom", [
           attribute.class(
             "absolute bottom-0 left-1/2 -translate-x-1/2 bg-black rounded-full size-2",

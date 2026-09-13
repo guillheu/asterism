@@ -8,8 +8,12 @@ import gleam/option.{type Option, None, Some}
 import gleam/string
 
 pub opaque type Process {
-  Process(pid: Pid, application: Option(String))
-  NamedProcess(pid: Pid, application: Option(String), name: String)
+  Process(
+    pid: Pid,
+    application: Option(String),
+    label: Option(String),
+    name: String,
+  )
 }
 
 pub type Link {
@@ -17,11 +21,7 @@ pub type Link {
 }
 
 pub fn process_to_string(proc: Process) -> String {
-  case proc {
-    Process(pid, _application) ->
-      string.inspect(pid) |> string.drop_start(6) |> string.drop_end(1)
-    NamedProcess(_pid, _application, name:) -> name
-  }
+  proc.name
 }
 
 pub fn get_process_application(proc: Process) -> Option(String) {
@@ -39,6 +39,10 @@ pub fn get_applications() -> List(String) {
     let #(name_atom, _description, _vsn) = app
     atom.to_string(name_atom)
   })
+}
+
+pub fn get_process_label(proc: Process) -> Option(String) {
+  proc.label
 }
 
 fn recurse_walk_process_graph(
@@ -98,10 +102,21 @@ fn process_from_pid(pid: Pid) -> Process {
     |> get_pid_application
     |> option.from_result
     |> option.map(atom.to_string)
-  case get_process_name(pid) {
-    Some(name) -> NamedProcess(pid, application, name |> atom.to_string)
-    None -> Process(pid, application)
+
+  let label =
+    pid
+    |> get_pid_label
+    |> option.from_result
+    |> option.map(string.inspect)
+  let name = case get_process_name(pid) {
+    Some(name) -> name |> atom.to_string
+    None -> pid_to_string(pid)
   }
+  Process(pid, application, label, name)
+}
+
+fn pid_to_string(pid: Pid) -> String {
+  string.inspect(pid) |> string.drop_start(6) |> string.drop_end(1)
 }
 
 @external(erlang, "asterism_ffi", "get_init_process")
@@ -118,3 +133,6 @@ fn get_pid_application(proc: Pid) -> Result(Atom, Nil)
 
 @external(erlang, "asterism_ffi", "get_loaded_applications")
 fn get_loaded_applications() -> List(#(Atom, String, String))
+
+@external(erlang, "asterism_ffi", "get_process_label")
+fn get_pid_label(proc: Pid) -> Result(any, Nil)
