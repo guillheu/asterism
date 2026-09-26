@@ -7,7 +7,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 
-pub opaque type Process {
+pub type Process {
   Process(
     pid: Pid,
     application: Option(String),
@@ -15,10 +15,19 @@ pub opaque type Process {
     name: String,
     trap_exit: Bool,
   )
+  Supervisor(
+    pid: Pid,
+    application: Option(String),
+    label: Option(String),
+    name: String,
+    trap_exit: Bool,
+    workers: List(Pid),
+  )
 }
 
 pub type Link {
-  Link(pid_1: Pid, pid_2: Pid)
+  Plain
+  Supervision
 }
 
 pub fn process_to_string(proc: Process) -> String {
@@ -29,7 +38,7 @@ pub fn get_process_application(proc: Process) -> Option(String) {
   proc.application
 }
 
-pub fn get_process_forest() -> graph.Graph(String, Process, Nil) {
+pub fn get_process_forest() -> graph.Graph(String, Process, Link) {
   recurse_walk_process_graph(graph.new(), dict.new(), [
     get_init_process(),
   ])
@@ -50,11 +59,34 @@ pub fn get_process_trap_exit(proc: Process) -> Bool {
   proc.trap_exit
 }
 
+fn identify_supervisors(
+  graph: graph.Graph(String, Process, Nil),
+) -> graph.Graph(String, Process, Nil) {
+  // This function does 2 things
+  // 1: turns plain processes into supervisors
+  let processes =
+    graph.get_nodes(graph)
+    |> list.fold(graph.new(), fn(current_graph, current_node) {
+      let #(node, edges) = case get_supervisor_workers(current_node.value.pid) {
+        Ok(_) -> todo
+        Error(_) -> #(current_node, todo)
+      }
+      let next_graph = graph |> graph.insert_node(node)
+      list.fold(edges, next_graph, fn(current_graph, next_edge) {
+        todo
+        // graph.insert_edge(current_graph, next_edge)
+      })
+      todo
+    })
+  // 2: for all supervisor processes found, links to corresponding workers are set as `Supervision` links. Other links are set to `Plain`.
+  todo
+}
+
 fn recurse_walk_process_graph(
-  current_graph: graph.Graph(String, Process, Nil),
+  current_graph: graph.Graph(String, Process, Link),
   current_seen_processes: Dict(Pid, Nil),
   current_pids: List(Pid),
-) -> graph.Graph(String, Process, Nil) {
+) -> graph.Graph(String, Process, Link) {
   case current_pids {
     [current_pid, ..current_remaining_pids] -> {
       let linked_to =
@@ -84,16 +116,6 @@ fn recurse_walk_process_graph(
           )
         })
 
-      // let known_links =
-      //   list.append(known_links, list.map(linked_to, PlainLink(_, first)))
-
-      // let rest = list.append(rest, linked_to)
-      // let already_seen_processes =
-      //   list.map(linked_to, fn(proc) { #(proc, process_from_pid(proc)) })
-      //   |> dict.from_list
-      //   |> dict.combine(already_seen_processes, fn(_, _) {
-      //     panic as "Process should have been filtered (this is a bad error message)"
-      //   })
       let next_pids = list.append(current_remaining_pids, linked_to)
       recurse_walk_process_graph(next_graph, next_seen_processes, next_pids)
     }
@@ -123,7 +145,10 @@ fn process_from_pid(pid: Pid) -> Process {
       <> string.inspect(pid)
       <> " is a dead process.\nHandling this case should really be easy but I was lazy, sorry"
     }
-  Process(pid, application, label, name, trap_exit)
+  case get_supervisor_workers(pid) {
+    Ok(workers) -> Supervisor(pid, application, label, name, trap_exit, workers)
+    Error(_) -> Process(pid, application, label, name, trap_exit)
+  }
 }
 
 fn pid_to_string(pid: Pid) -> String {
@@ -153,3 +178,6 @@ fn get_pid_trap_exit(proc: Pid) -> Result(Bool, Nil)
 
 @external(erlang, "asterism_ffi", "get_processes")
 fn get_processes() -> List(Pid)
+
+@external(erlang, "asterism_ffi", "get_supervisor_workers")
+fn get_supervisor_workers(proc: Pid) -> Result(List(Pid), Nil)

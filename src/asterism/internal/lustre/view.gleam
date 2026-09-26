@@ -18,6 +18,7 @@ import gleam/result
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/element/svg
 
 const horizontal_scaling_from_graph_positions = 200
 
@@ -155,18 +156,37 @@ pub const application_color_palette = [
 ]
 
 pub fn view(model: Model) -> Element(Msg) {
+  case model {
+    model.NotYetLoaded -> get_loading_page()
+    model.Model(graph, loaded_applications) ->
+      get_loaded_page(graph, loaded_applications)
+  }
+}
+
+fn get_loading_page() -> Element(Msg) {
+  html.div([], [html.h1([], [html.text("Loading...")])])
+}
+
+fn get_loaded_page(
+  graph: graph.Graph(
+    String,
+    #(process_tree.Process, Int, Int),
+    #(option.Option(process_tree.Link), #(#(Int, Int), #(Int, Int))),
+  ),
+  loaded_applications: List(String),
+) -> Element(Msg) {
   let transform = transform.init()
   let application_colors =
-    list.zip(model.loaded_applications, application_color_palette)
+    list.zip(loaded_applications, application_color_palette)
     |> dict.from_list
   let nodes =
-    list.map(model.graph |> graph.get_nodes, fn(node) {
+    list.map(graph |> graph.get_nodes, fn(node) {
       let node_element = get_node_element(node, application_colors)
       #(node.value.0 |> process_tree.process_to_string, node_element)
     })
     |> clique.nodes
   let edges =
-    list.map(model.graph |> graph.get_edges, fn(edge) {
+    list.map(graph |> graph.get_edges, fn(edge) {
       let edge_element = get_edge_element(edge)
       #(edge.from <> edge.to, edge_element)
     })
@@ -200,12 +220,12 @@ pub fn view(model: Model) -> Element(Msg) {
 fn get_edge_element(
   edge: graph_edge.Edge(
     String,
-    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
+    #(option.Option(process_tree.Link), #(#(Int, Int), #(Int, Int))),
   ),
 ) -> Element(Msg) {
   let handle1 = handle.Handle(edge.from, "link-bottom")
   let handle2 = handle.Handle(edge.to, "link-top")
-  let #(_c1, _c2) = get_bezier_control_points_from_edge(edge)
+  // let #(_c1, _c2) = get_bezier_control_points_from_edge(edge)
   clique.edge(handle1, handle2, edge.linear([]), [])
 }
 
@@ -251,7 +271,9 @@ fn get_node_element(
       { node.value.2 * horizontal_scaling_from_graph_positions } |> int.to_float,
       { node.value.1 * vertical_scaling_from_graph_positions } |> int.to_float,
     ),
-    attribute.class("bg-[" <> node_color <> "] rounded " <> node_border),
+    attribute.class(
+      "bg-[" <> node_color <> "] rounded " <> node_border <> " -translate-x-1/2",
+    ),
   ]
 
   clique.node(node.key, attributes, [
@@ -262,11 +284,32 @@ fn get_node_element(
         ),
       ],
       [
-        clique.handle("link-top", [
-          attribute.class(
-            "absolute top-0 left-1/2 -translate-x-1/2 bg-black rounded-full size-2",
-          ),
-        ]),
+        html.div(
+          [attribute.class("relative")],
+          [
+            clique.handle("link-top", [
+              attribute.class(
+                "absolute top-0 left-1/2 -translate-y-full -translate-x-1/2 bg-black rounded-full size-2",
+              ),
+            ]),
+          ]
+            |> list.append(case node_process {
+              process_tree.Supervisor(_, _, _, _, _, _) -> [
+                svg.svg(
+                  [
+                    attribute.class(
+                      "absolute -translate-x-1/2 top-0 -translate-y-full left-1/2 z-10 w-8 h-8",
+                    ),
+                    attribute.attribute("viewBox", "0 0 10 10"),
+                  ],
+                  [
+                    svg.path([attribute.attribute("d", "M0 0L5 10 10 0z")]),
+                  ],
+                ),
+              ]
+              process_tree.Process(_, _, _, _, _) -> []
+            }),
+        ),
         html.h4([attribute.class("font-bold")], [
           node.value.0
           |> process_tree.get_process_application
@@ -281,7 +324,7 @@ fn get_node_element(
         ]),
         clique.handle("link-bottom", [
           attribute.class(
-            "absolute bottom-0 left-1/2 -translate-x-1/2 bg-black rounded-full size-2",
+            "absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full bg-black rounded-full size-2",
           ),
         ]),
       ],

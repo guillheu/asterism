@@ -18,9 +18,8 @@ pub fn app() -> lustre.App(Nil, Model, Msg) {
 }
 
 fn init(_: Nil) -> #(Model, Effect(Msg)) {
-  let graph = process_tree.get_process_forest()
-  let laid_out_graph = sugiyama.run(graph)
-  let loaded_applications = process_tree.get_applications()
+  let effect =
+    effect.from(fn(dispatch) { dispatch(update.ConnectionFinishedInitializing) })
 
-  #(Model(laid_out_graph, loaded_applications), effect.none())
+  #(model.NotYetLoaded, effect)
 }

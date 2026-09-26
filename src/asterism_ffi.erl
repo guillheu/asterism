@@ -4,6 +4,7 @@
 -export([get_process_label/1]).
 -export([get_process_trap_exit/1]).
 -export([get_processes/0]).
+-export([get_supervisor_workers/1]).
 
 get_init_process() ->
     whereis(init).
@@ -49,3 +50,16 @@ get_process_label(Pid) ->
 
 get_processes() -> 
     erlang:processes().
+
+get_supervisor_workers(Pid) ->
+    case process_info(Pid, {dictionary, '$initial_call'}) of
+        {_, {supervisor, _Mod, 1}} ->
+            try supervisor:which_children(Pid) of
+                Children ->
+                    {ok, [P || {_Id, P, worker, _Mods} <- Children, is_pid(P)]}
+            catch
+                _:_ -> {error, nil}
+            end;
+        _ ->
+            {error, nil}
+    end.
