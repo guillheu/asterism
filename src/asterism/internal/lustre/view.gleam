@@ -276,6 +276,23 @@ fn get_node_element(
     ),
   ]
 
+  let supervisor_signal = case node_process {
+    process_tree.Supervisor(_, _, _, _, _, _) -> [
+      svg.svg(
+        [
+          attribute.class(
+            "absolute -translate-x-1/2 translate-y-1/6 top-0 left-1/2 z-10 w-8 h-8",
+          ),
+          attribute.attribute("viewBox", "0 0 10 10"),
+        ],
+        [
+          svg.path([attribute.attribute("d", "M0 0L5 10 10 0z")]),
+        ],
+      ),
+    ]
+    process_tree.Process(_, _, _, _, _) -> []
+  }
+
   clique.node(node.key, attributes, [
     html.div(
       [
@@ -284,32 +301,13 @@ fn get_node_element(
         ),
       ],
       [
-        html.div(
-          [attribute.class("relative")],
-          [
-            clique.handle("link-top", [
-              attribute.class(
-                "absolute top-0 left-1/2 -translate-y-full -translate-x-1/2 bg-black rounded-full size-2",
-              ),
-            ]),
-          ]
-            |> list.append(case node_process {
-              process_tree.Supervisor(_, _, _, _, _, _) -> [
-                svg.svg(
-                  [
-                    attribute.class(
-                      "absolute -translate-x-1/2 top-0 -translate-y-full left-1/2 z-10 w-8 h-8",
-                    ),
-                    attribute.attribute("viewBox", "0 0 10 10"),
-                  ],
-                  [
-                    svg.path([attribute.attribute("d", "M0 0L5 10 10 0z")]),
-                  ],
-                ),
-              ]
-              process_tree.Process(_, _, _, _, _) -> []
-            }),
-        ),
+        html.div([attribute.class("relative")], [
+          clique.handle("link-top", [
+            attribute.class(
+              "absolute top-0 left-1/2 -translate-y-full -translate-x-1/2 bg-black rounded-full size-2",
+            ),
+          ]),
+        ]),
         html.h4([attribute.class("font-bold")], [
           node.value.0
           |> process_tree.get_process_application
@@ -322,11 +320,17 @@ fn get_node_element(
             process_tree.get_process_label(node_process) |> option.unwrap(""),
           ),
         ]),
-        clique.handle("link-bottom", [
-          attribute.class(
-            "absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full bg-black rounded-full size-2",
-          ),
-        ]),
+        html.div(
+          [attribute.class("relative")],
+          [
+            clique.handle("link-bottom", [
+              attribute.class(
+                "absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full bg-black rounded-full size-2",
+              ),
+            ]),
+          ]
+            |> list.append(supervisor_signal),
+        ),
       ],
     ),
   ])
