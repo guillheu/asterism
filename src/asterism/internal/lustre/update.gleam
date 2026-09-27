@@ -1,7 +1,5 @@
-import aonyx/graph
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/process_tree
-import gleam/option
 import lustre/effect.{type Effect}
 import sugiyama
 
@@ -18,7 +16,7 @@ pub type Msg {
   ConnectionFinishedInitializing
 }
 
-pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     ConnectionFinishedInitializing -> #(load_forest(), effect.none())
   }

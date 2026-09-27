@@ -25,11 +25,6 @@ pub type Process {
   )
 }
 
-pub type Link {
-  Plain
-  Supervision
-}
-
 pub fn process_to_string(proc: Process) -> String {
   proc.name
 }
@@ -38,10 +33,8 @@ pub fn get_process_application(proc: Process) -> Option(String) {
   proc.application
 }
 
-pub fn get_process_forest() -> graph.Graph(String, Process, Link) {
-  recurse_walk_process_graph(graph.new(), dict.new(), [
-    get_init_process(),
-  ])
+pub fn get_process_forest() -> graph.Graph(String, Process, Nil) {
+  recurse_walk_process_graph(graph.new(), dict.new(), [get_init_process()])
 }
 
 pub fn get_applications() -> List(String) {
@@ -59,34 +52,11 @@ pub fn get_process_trap_exit(proc: Process) -> Bool {
   proc.trap_exit
 }
 
-fn identify_supervisors(
-  graph: graph.Graph(String, Process, Nil),
-) -> graph.Graph(String, Process, Nil) {
-  // This function does 2 things
-  // 1: turns plain processes into supervisors
-  let processes =
-    graph.get_nodes(graph)
-    |> list.fold(graph.new(), fn(current_graph, current_node) {
-      let #(node, edges) = case get_supervisor_workers(current_node.value.pid) {
-        Ok(_) -> todo
-        Error(_) -> #(current_node, todo)
-      }
-      let next_graph = graph |> graph.insert_node(node)
-      list.fold(edges, next_graph, fn(current_graph, next_edge) {
-        todo
-        // graph.insert_edge(current_graph, next_edge)
-      })
-      todo
-    })
-  // 2: for all supervisor processes found, links to corresponding workers are set as `Supervision` links. Other links are set to `Plain`.
-  todo
-}
-
 fn recurse_walk_process_graph(
-  current_graph: graph.Graph(String, Process, Link),
+  current_graph: graph.Graph(String, Process, Nil),
   current_seen_processes: Dict(Pid, Nil),
   current_pids: List(Pid),
-) -> graph.Graph(String, Process, Link) {
+) -> graph.Graph(String, Process, Nil) {
   case current_pids {
     [current_pid, ..current_remaining_pids] -> {
       let linked_to =

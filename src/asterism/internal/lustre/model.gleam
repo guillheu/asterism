@@ -1,8 +1,6 @@
 import aonyx/graph
-import asterism/internal/process_tree.{type Link, type Process}
-import gleam/erlang/process.{type Pid}
+import asterism/internal/process_tree
 import gleam/option
-import gleam/string
 
 pub type Model {
   NotYetLoaded
@@ -13,7 +11,7 @@ pub type Model {
     graph: graph.Graph(
       String,
       #(process_tree.Process, Int, Int),
-      #(option.Option(Link), #(#(Int, Int), #(Int, Int))),
+      #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
     loaded_applications: List(String),
   )

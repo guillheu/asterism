@@ -171,7 +171,7 @@ fn get_loaded_page(
   graph: graph.Graph(
     String,
     #(process_tree.Process, Int, Int),
-    #(option.Option(process_tree.Link), #(#(Int, Int), #(Int, Int))),
+    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
   ),
   loaded_applications: List(String),
 ) -> Element(Msg) {
@@ -220,34 +220,13 @@ fn get_loaded_page(
 fn get_edge_element(
   edge: graph_edge.Edge(
     String,
-    #(option.Option(process_tree.Link), #(#(Int, Int), #(Int, Int))),
+    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
   ),
 ) -> Element(Msg) {
   let handle1 = handle.Handle(edge.from, "link-bottom")
   let handle2 = handle.Handle(edge.to, "link-top")
   // let #(_c1, _c2) = get_bezier_control_points_from_edge(edge)
   clique.edge(handle1, handle2, edge.linear([]), [])
-}
-
-fn get_bezier_control_points_from_edge(
-  edge: graph_edge.Edge(
-    String,
-    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
-  ),
-) -> #(#(Float, Float), #(Float, Float)) {
-  let assert option.Some(#(_, #(control_point_1, control_point_2))) = edge.label
-  let #(c1x, c1y) = control_point_1
-  let #(c2x, c2y) = control_point_2
-
-  let c1 = #(
-    { c1x * horizontal_scaling_from_graph_positions } |> int.to_float,
-    { c1y * vertical_scaling_from_graph_positions } |> int.to_float,
-  )
-  let c2 = #(
-    { c2x * horizontal_scaling_from_graph_positions } |> int.to_float,
-    { c2y * vertical_scaling_from_graph_positions } |> int.to_float,
-  )
-  #(c1, c2)
 }
 
 fn get_node_element(
