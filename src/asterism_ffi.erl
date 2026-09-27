@@ -15,9 +15,9 @@ get_children(SupRef) ->
 get_linked_processes(Pid) ->
     case process_info(Pid, links) of
         {links, Links} ->
-            lists:filter(fun is_pid/1, Links);
+            {ok, lists:filter(fun is_pid/1, Links)};
         undefined ->
-            error(badarg)
+            {error, nil}
     end.
 
 get_process_name(Pid) ->
@@ -32,11 +32,13 @@ get_process_trap_exit(Pid) ->
         {trap_exit, Flag} -> {ok, Flag}
     end.
 
-get_process_application(Pid) ->
+get_process_application(Pid) when node(Pid) =:= node() ->
     case application:get_application(Pid) of
         {ok, App} -> {ok, App};
         undefined -> {error, nil}
-    end.
+    end;
+get_process_application(_Pid) ->
+    {error, nil}.
 
 get_loaded_applications() ->
     [{App, unicode:characters_to_binary(Desc), unicode:characters_to_binary(Vsn)}
