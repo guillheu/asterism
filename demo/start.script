@@ -1,0 +1,25 @@
+%% Compiles, (re)loads and (re)starts the tiny demo application.
+%% Run from the project root, inside gleam shell:
+%%   file:script("demo/start.script").
+Src = "demo/src",
+Ebin = "demo/ebin",
+Mods = ["tiny_worker", "tiny_sup", "tiny_app"],
+
+%% Stop and unload any previous run so this script can be re-run after edits.
+_ = application:stop(tiny),
+_ = application:unload(tiny),
+
+%% Compile into demo/ebin and load the fresh code.
+ok = filelib:ensure_dir(Ebin ++ "/"),
+true = code:add_patha(Ebin),
+[{ok, _} = compile:file(filename:join(Src, M), [{outdir, Ebin}, report]) || M <- Mods],
+[begin
+     code:purge(list_to_atom(M)),
+     {module, _} = code:load_file(list_to_atom(M))
+ end || M <- Mods],
+
+%% Load the application spec straight from the .app.src and start it.
+{ok, [AppSpec]} = file:consult(filename:join(Src, "tiny.app.src")),
+ok = application:load(AppSpec),
+ok = application:start(tiny),
+io:format("tiny started, children: ~p~n", [supervisor:which_children(tiny_sup)]).
