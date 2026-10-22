@@ -13,8 +13,7 @@ pub fn app() -> lustre.App(Nil, Model, Msg) {
 }
 
 fn init(_: Nil) -> #(Model, Effect(Msg)) {
-  let effect =
-    effect.from(fn(dispatch) { dispatch(update.ConnectionFinishedInitializing) })
+  let effect = effect.from(fn(dispatch) { dispatch(update.TimerRefreshForest) })
 
   #(model.NotYetLoaded, effect)
 }

@@ -10,15 +10,15 @@ pub type Msg {
   // To circumvent this, we have to ensure the forest building is ran in a worker
   // meaning in the update function, NOT in the init function.
   // We achieve this by having the init function run an empty side-effect
-  // that only returns the ConnectionFinishedInitializing message
+  // that only returns the TimerRefreshForest message
   // then the update function (running in the worker) will run the
   // tree building process when handling that message
-  ConnectionFinishedInitializing
+  TimerRefreshForest
 }
 
 pub fn update(_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ConnectionFinishedInitializing -> #(load_forest(), effect.none())
+    TimerRefreshForest -> #(load_forest(), effect.none())
   }
 }
 
