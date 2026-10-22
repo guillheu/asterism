@@ -1,24 +1,11 @@
-# asterism
+# Asterism
 
-[![Package Version](https://img.shields.io/hexpm/v/asterism)](https://hex.pm/packages/asterism)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/asterism/)
+Asterism is an OTP graph visualizer, built from a desire to learn about the BEAM and OTP.
 
-```sh
-gleam add asterism@1
-```
-```gleam
-import asterism
+## How to use
 
-pub fn main() -> Nil {
-  // TODO: An example of the project in use
-}
-```
+# Standalone
+You can use `gleam run` to quickly spin up a new BEAM node and play around with the Asterism visualizer.
 
-Further documentation can be found at <https://hexdocs.pm/asterism>.
-
-## Development
-
-```sh
-gleam run   # Run the project
-gleam test  # Run the tests
-```
+# On an existing BEAM node
+Add the module to you running BEAM node, then `application:ensure_all_started(asterism).`, then `spawn(fun asterism:main/0).`. This will start a new HTTP server on port 1234.
