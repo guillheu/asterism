@@ -1,0 +1,67 @@
+-module(asterism_ffi).
+-export([get_init_process/0, get_children/1, get_linked_processes/1, get_process_name/1, get_process_application/1]).
+-export([get_loaded_applications/0]).
+-export([get_process_label/1]).
+-export([get_process_trap_exit/1]).
+-export([get_processes/0]).
+-export([get_supervisor_workers/1]).
+
+get_init_process() ->
+    whereis(init).
+
+get_children(SupRef) ->
+    supervisor:which_children(SupRef).
+
+get_linked_processes(Pid) ->
+    case process_info(Pid, links) of
+        {links, Links} ->
+            {ok, lists:filter(fun is_pid/1, Links)};
+        undefined ->
+            {error, nil}
+    end.
+
+get_process_name(Pid) ->
+    case process_info(Pid, registered_name) of
+        []                      -> none;
+        {registered_name, Name} -> {some, Name}
+    end.
+
+get_process_trap_exit(Pid) ->
+    case process_info(Pid, trap_exit) of
+        undefined         -> {error, nil};
+        {trap_exit, Flag} -> {ok, Flag}
+    end.
+
+get_process_application(Pid) when node(Pid) =:= node() ->
+    case application:get_application(Pid) of
+        {ok, App} -> {ok, App};
+        undefined -> {error, nil}
+    end;
+get_process_application(_Pid) ->
+    {error, nil}.
+
+get_loaded_applications() ->
+    [{App, unicode:characters_to_binary(Desc), unicode:characters_to_binary(Vsn)}
+     || {App, Desc, Vsn} <- application:loaded_applications()].
+
+get_process_label(Pid) -> 
+    case proc_lib:get_label(Pid) of
+        undefined -> {error, nil};
+        Label -> {ok, Label}
+    end.
+
+get_processes() -> 
+    erlang:processes().
+
+get_supervisor_workers(Pid) ->
+    case process_info(Pid, {dictionary, '$initial_call'}) of
+        {_, {supervisor, _Mod, 1}} ->
+            try supervisor:which_children(Pid) of
+                Children ->
+                    {ok, [P || {_Id, P, worker, _Mods} <- Children, is_pid(P)]}
+            catch
+                _:_ -> {error, nil}
+            end;
+        _ ->
+            {error, nil}
+    end.

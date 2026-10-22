@@ -1,0 +1,8 @@
+{application, tiny, [
+    {description, "tiny"},
+    {vsn, "0.1.0"},
+    {modules, [tiny_app, tiny_sup, tiny_worker]},
+    {registered, [tiny_sup, tiny_worker]},
+    {applications, [kernel, stdlib]},
+    {mod, {tiny_app, []}}
+]}.

@@ -1,1 +1,24 @@
-For some reason, tailwind doesnt seem to care about style classes used in code that's from a dependency. In our case, `shared` has the view function with all the tailwind classes. So tailwind just doesnt generate the classes we need. To get around that, we first run `gleam run` on the `shared` project. That will create a simple `out.html` file which then serves as a source for the `client.css` file, which then builds classes based on it.
+# asterism
+
+[![Package Version](https://img.shields.io/hexpm/v/asterism)](https://hex.pm/packages/asterism)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/asterism/)
+
+```sh
+gleam add asterism@1
+```
+```gleam
+import asterism
+
+pub fn main() -> Nil {
+  // TODO: An example of the project in use
+}
+```
+
+Further documentation can be found at <https://hexdocs.pm/asterism>.
+
+## Development
+
+```sh
+gleam run   # Run the project
+gleam test  # Run the tests
+```

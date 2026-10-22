@@ -1,0 +1,5 @@
+%% Stops and unloads the tiny demo application.
+%%   file:script("demo/stop.script").
+_ = application:stop(tiny),
+_ = application:unload(tiny),
+io:format("tiny stopped~n").
