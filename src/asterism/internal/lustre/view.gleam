@@ -10,8 +10,6 @@ import clique/edge
 import clique/handle
 import clique/node
 import clique/transform
-import gleam/bit_array
-import gleam/crypto
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/list
@@ -29,7 +27,7 @@ const vertical_scaling_from_graph_positions = 250
 pub fn view(model: Model) -> Element(Msg) {
   case model {
     model.NotYetLoaded -> get_loading_page()
-    model.Model(graph, loaded_applications) ->
+    model.Model(graph, loaded_applications, _) ->
       get_loaded_page(graph, loaded_applications)
   }
 }

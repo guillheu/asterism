@@ -15,5 +15,6 @@ pub type Model {
       #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
     loaded_applications: Dict(String, String),
+    auto_refresh: Bool,
   )
 }

@@ -1,10 +1,9 @@
 import aonyx/graph
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/process_tree
-import gleam/dict
-import gleam/http/cookie
+import gleam/dict.{type Dict}
 import gleam/list
-import gleam/order
+import gleam/option
 import lustre/effect.{type Effect}
 import sugiyama
 
@@ -32,10 +31,8 @@ pub type Msg {
 
 pub fn update(previous_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ApplicationFinishedLoading -> {
-      let new_model = load_forest()
-      #(new_model, tick(new_model, refresh_timeout_ms))
-    }
+    ApplicationFinishedLoading ->
+      check_for_auto_refresh(previous_model, load_forest())
     TimerCheckForestUpdate -> #(
       previous_model,
       tick(previous_model, refresh_timeout_ms),
@@ -47,28 +44,63 @@ pub fn update(previous_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
+fn check_for_auto_refresh(
+  previous_model: Model,
+  new_model: #(
+    graph.Graph(
+      String,
+      #(process_tree.Process, Int, Int),
+      #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
+    ),
+    Dict(String, String),
+  ),
+) -> #(Model, Effect(Msg)) {
+  let #(new_graph, new_apps) = new_model
+  case previous_model {
+    model.Model(_, _, True) -> {
+      let new_model =
+        model.Model(
+          graph: new_graph,
+          loaded_applications: new_apps,
+          auto_refresh: True,
+        )
+      #(new_model, tick(new_model, refresh_timeout_ms))
+    }
+    _ -> #(
+      model.Model(
+        graph: new_graph,
+        loaded_applications: new_apps,
+        auto_refresh: False,
+      ),
+      effect.none(),
+    )
+  }
+}
+
 pub fn tick(
   previous_model model: Model,
   timeout_ms timeout: Int,
 ) -> effect.Effect(Msg) {
   use dispatch <- effect.from
   sleep_ms(timeout)
-  let new_forest = load_forest()
-  echo "checking for updates"
+  let #(new_graph, new_apps) = load_forest()
+  let new_forest =
+    model.Model(
+      graph: new_graph,
+      loaded_applications: new_apps,
+      auto_refresh: True,
+    )
   case compare_models(model, new_forest) {
     Same -> TimerCheckForestUpdate
-    Different -> {
-      echo "Different models!"
-      CheckerReportedForestUpdate(new_forest)
-    }
+    Different -> CheckerReportedForestUpdate(new_forest)
   }
   |> dispatch
 }
 
 fn compare_models(model: Model, new_forest: Model) -> Compare {
-  let assert model.Model(new_graph, new_loaded_applications) = new_forest
+  let assert model.Model(new_graph, new_loaded_applications, _) = new_forest
   case model {
-    model.Model(graph, loaded_applications) ->
+    model.Model(graph, loaded_applications, _) ->
       case
         lists_equal(
           loaded_applications |> dict.to_list,
@@ -94,11 +126,18 @@ fn lists_equal(list1: List(a), list2: List(a)) -> Compare {
   }
 }
 
-fn load_forest() -> Model {
+fn load_forest() -> #(
+  graph.Graph(
+    String,
+    #(process_tree.Process, Int, Int),
+    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
+  ),
+  Dict(String, String),
+) {
   let graph = process_tree.get_process_forest()
   let laid_out_graph = sugiyama.run(graph)
   let loaded_applications = process_tree.get_applications()
-  model.Model(laid_out_graph, loaded_applications)
+  #(laid_out_graph, loaded_applications)
 }
 
 @external(erlang, "timer", "sleep")
