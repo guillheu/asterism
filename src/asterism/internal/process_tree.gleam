@@ -1,5 +1,6 @@
 import aonyx/graph
 import aonyx/graph/edge
+import asterism/internal/utils
 import gleam/dict.{type Dict}
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/process.{type Pid}
@@ -73,11 +74,14 @@ fn get_process_forest_recurse(
   }
 }
 
-pub fn get_applications() -> List(String) {
+pub fn get_applications() -> Dict(String, String) {
   list.map(get_loaded_applications(), fn(app) {
     let #(name_atom, _description, _vsn) = app
-    atom.to_string(name_atom)
+    let name = atom.to_string(name_atom)
+    #(name, utils.string_to_hex_color(name))
   })
+  |> echo
+  |> dict.from_list
 }
 
 pub fn get_process_label(proc: Process) -> Option(String) {
