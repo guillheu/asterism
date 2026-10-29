@@ -1,6 +1,7 @@
 import aonyx/graph
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/process_tree
+import gleam/dict
 import gleam/http/cookie
 import gleam/list
 import gleam/order
@@ -68,7 +69,12 @@ fn compare_models(model: Model, new_forest: Model) -> Compare {
   let assert model.Model(new_graph, new_loaded_applications) = new_forest
   case model {
     model.Model(graph, loaded_applications) ->
-      case lists_equal(loaded_applications, new_loaded_applications) {
+      case
+        lists_equal(
+          loaded_applications |> dict.to_list,
+          new_loaded_applications |> dict.to_list,
+        )
+      {
         Same ->
           case lists_equal(graph.get_nodes(graph), graph.get_nodes(new_graph)) {
             Same ->

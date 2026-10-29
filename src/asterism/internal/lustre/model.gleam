@@ -1,5 +1,6 @@
 import aonyx/graph
 import asterism/internal/process_tree
+import gleam/dict.{type Dict}
 import gleam/option
 
 pub type Model {
@@ -13,6 +14,6 @@ pub type Model {
       #(process_tree.Process, Int, Int),
       #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
-    loaded_applications: List(String),
+    loaded_applications: Dict(String, String),
   )
 }
