@@ -1,4 +1,5 @@
 import aonyx/graph
+import asterism/internal/lustre/autorefresh.{type AutoRefreshOption}
 import asterism/internal/process_tree
 import gleam/dict.{type Dict}
 import gleam/option
@@ -15,6 +16,6 @@ pub type Model {
       #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
     ),
     loaded_applications: Dict(String, String),
-    auto_refresh: Bool,
+    auto_refresh: AutoRefreshOption,
   )
 }

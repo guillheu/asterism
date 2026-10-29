@@ -1,4 +1,5 @@
 import aonyx/graph
+import asterism/internal/lustre/autorefresh
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/process_tree
 import gleam/dict.{type Dict}
@@ -6,13 +7,6 @@ import gleam/list
 import gleam/option
 import lustre/effect.{type Effect}
 import sugiyama
-
-const refresh_timeout_ms = 1000
-
-type Compare {
-  Same
-  Different
-}
 
 pub type Msg {
   // We need to send a message to every process to build the process tree
@@ -25,104 +19,49 @@ pub type Msg {
   // then the update function (running in the worker) will run the
   // tree building process when handling that message
   ApplicationFinishedLoading
-  TimerCheckForestUpdate
-  CheckerReportedForestUpdate(Model)
+  // TimerCheckForestUpdate
+  // CheckerReportedForestUpdate(Model)
+  UserChangedAutoRefreshSetting(autorefresh.AutoRefreshMessage)
 }
 
-pub fn update(previous_model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
-  case msg {
-    ApplicationFinishedLoading ->
-      check_for_auto_refresh(previous_model, load_forest())
-    TimerCheckForestUpdate -> #(
-      previous_model,
-      tick(previous_model, refresh_timeout_ms),
-    )
-    CheckerReportedForestUpdate(model) -> #(
-      model,
-      tick(previous_model, refresh_timeout_ms),
-    )
-  }
-}
-
-fn check_for_auto_refresh(
-  previous_model: Model,
-  new_model: #(
-    graph.Graph(
-      String,
-      #(process_tree.Process, Int, Int),
-      #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
-    ),
-    Dict(String, String),
-  ),
-) -> #(Model, Effect(Msg)) {
-  let #(new_graph, new_apps) = new_model
-  case previous_model {
-    model.Model(_, _, True) -> {
-      let new_model =
-        model.Model(
-          graph: new_graph,
-          loaded_applications: new_apps,
-          auto_refresh: True,
-        )
-      #(new_model, tick(new_model, refresh_timeout_ms))
-    }
-    _ -> #(
-      model.Model(
-        graph: new_graph,
-        loaded_applications: new_apps,
-        auto_refresh: False,
-      ),
-      effect.none(),
-    )
-  }
-}
-
-pub fn tick(
-  previous_model model: Model,
-  timeout_ms timeout: Int,
-) -> effect.Effect(Msg) {
-  use dispatch <- effect.from
-  sleep_ms(timeout)
-  let #(new_graph, new_apps) = load_forest()
-  let new_forest =
-    model.Model(
-      graph: new_graph,
-      loaded_applications: new_apps,
-      auto_refresh: True,
-    )
-  case compare_models(model, new_forest) {
-    Same -> TimerCheckForestUpdate
-    Different -> CheckerReportedForestUpdate(new_forest)
-  }
-  |> dispatch
-}
-
-fn compare_models(model: Model, new_forest: Model) -> Compare {
-  let assert model.Model(new_graph, new_loaded_applications, _) = new_forest
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case model {
-    model.Model(graph, loaded_applications, _) ->
-      case
-        lists_equal(
-          loaded_applications |> dict.to_list,
-          new_loaded_applications |> dict.to_list,
-        )
-      {
-        Same ->
-          case lists_equal(graph.get_nodes(graph), graph.get_nodes(new_graph)) {
-            Same ->
-              lists_equal(graph.get_edges(graph), graph.get_edges(new_graph))
-            Different -> Different
-          }
-        Different -> Different
-      }
-    model.NotYetLoaded -> Different
+    model.NotYetLoaded -> update_not_yet_loaded(msg)
+    model.Model(graph:, loaded_applications:, auto_refresh:) ->
+      update_model(graph, loaded_applications, auto_refresh, msg)
   }
 }
 
-fn lists_equal(list1: List(a), list2: List(a)) -> Compare {
-  case list.all(list1, fn(item1) { list.contains(list2, item1) }) {
-    True -> Same
-    False -> Different
+fn update_model(
+  graph: graph.Graph(
+    String,
+    #(process_tree.Process, Int, Int),
+    #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
+  ),
+  loaded_applications: Dict(String, String),
+  auto_refresh: autorefresh.AutoRefreshOption,
+  msg: Msg,
+) -> #(Model, Effect(Msg)) {
+  case msg {
+    UserChangedAutoRefreshSetting(auto_refresh_msg) -> {
+      let new_auto_refresh_setting =
+        autorefresh.update(auto_refresh, auto_refresh_msg)
+      #(
+        model.Model(graph, loaded_applications, new_auto_refresh_setting),
+        effect.none(),
+      )
+    }
+    _ -> #(model.Model(graph, loaded_applications, auto_refresh), effect.none())
+  }
+}
+
+fn update_not_yet_loaded(msg: Msg) -> #(Model, Effect(Msg)) {
+  case msg {
+    ApplicationFinishedLoading -> {
+      let #(graph, apps) = load_forest()
+      #(model.Model(graph, apps, autorefresh.auto_refresh_on()), effect.none())
+    }
+    _ -> #(model.NotYetLoaded, effect.none())
   }
 }
 

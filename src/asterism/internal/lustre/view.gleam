@@ -1,6 +1,7 @@
 import aonyx/graph
 import aonyx/graph/edge as graph_edge
 import aonyx/graph/node as graph_node
+import asterism/internal/lustre/autorefresh
 import asterism/internal/lustre/model.{type Model}
 import asterism/internal/lustre/update.{type Msg}
 import asterism/internal/process_tree
@@ -27,8 +28,8 @@ const vertical_scaling_from_graph_positions = 250
 pub fn view(model: Model) -> Element(Msg) {
   case model {
     model.NotYetLoaded -> get_loading_page()
-    model.Model(graph, loaded_applications, _) ->
-      get_loaded_page(graph, loaded_applications)
+    model.Model(graph, loaded_applications, auto_refresh) ->
+      get_loaded_page(graph, loaded_applications, auto_refresh)
   }
 }
 
@@ -43,6 +44,7 @@ fn get_loaded_page(
     #(option.Option(Nil), #(#(Int, Int), #(Int, Int))),
   ),
   loaded_applications: Dict(String, String),
+  auto_refresh: autorefresh.AutoRefreshOption,
 ) -> Element(Msg) {
   let transform = transform.init()
   let nodes =
@@ -80,7 +82,26 @@ fn get_loaded_page(
         edges,
       ],
     ),
+    get_auto_refresh_element(auto_refresh),
   ])
+}
+
+fn get_auto_refresh_element(
+  auto_refresh: autorefresh.AutoRefreshOption,
+) -> Element(Msg) {
+  let button =
+    autorefresh.view_get_auto_refresh_button(
+      auto_refresh,
+      update.UserChangedAutoRefreshSetting,
+    )
+  html.div(
+    [
+      attribute.class(
+        "fixed bottom-4 right-4 z-50 rounded-full bg-blue-600 px-4 py-2 text-white shadow-lg",
+      ),
+    ],
+    [button],
+  )
 }
 
 fn get_edge_element(

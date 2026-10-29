@@ -80,7 +80,6 @@ pub fn get_applications() -> Dict(String, String) {
     let name = atom.to_string(name_atom)
     #(name, utils.string_to_hex_color(name))
   })
-  |> echo
   |> dict.from_list
 }
 
